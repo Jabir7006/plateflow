@@ -1,0 +1,43 @@
+# Project Rules for Cline
+
+## Shell & Commands
+- ALWAYS run terminal commands using **fish shell** syntax, NEVER bash/zsh syntax.
+  - Use `set VAR value` instead of `export VAR=value`.
+  - Use `and`/`or` instead of `&&`/`||`.
+  - Use `if test ...` instead of `if [ ... ]`.
+- Before running any command, check whether it matches fish syntax. If a tool's docs only give bash examples, translate them to fish before running.
+- Prefer the project's package manager exactly as declared in `package.json` (`packageManager` field). Do NOT mix `npm`/`yarn` commands into a `pnpm` project or vice versa.
+
+## Dependency & Version Checks
+- Before adding any new dependency, check its latest stable version (via `pnpm info <package> version` or npm registry) instead of relying on training knowledge — package versions change constantly.
+- When updating a dependency, check its changelog/release notes for breaking changes before applying the update, and summarize any breaking changes found.
+- Never downgrade a dependency without explicit confirmation from me.
+- After adding/updating dependencies, run the project's `build` and `lint` scripts to confirm nothing broke.
+
+## Edge Cases & Correctness
+- Before implementing a function, explicitly think through and handle: empty/null/undefined input, empty arrays, network/API failures, race conditions, and boundary values (0, negative numbers, max limits).
+- For any API endpoint or form handler, validate and sanitize all external input — never trust client-supplied data.
+- When writing async code, always handle rejected promises and add try/catch around I/O (DB calls, fetch, file access).
+- Flag any place where an edge case is intentionally left unhandled, with a `// TODO:` comment explaining why.
+
+## Best Practices
+- Follow existing patterns already in the codebase (naming conventions, file structure, hooks/queries pattern, etc.) instead of introducing new conventions without asking.
+- Prefer readable, explicit code over clever one-liners.
+- Keep functions small and single-purpose; suggest splitting a function if it exceeds ~40 lines or handles multiple responsibilities.
+- Never hardcode secrets, API keys, or environment-specific values — use environment variables (`.env`, never committed).
+- Write TypeScript types explicitly for function inputs/outputs; avoid `any` unless justified with a comment.
+
+## Testing & Verification
+- After making a code change, run the relevant `lint`/`build`/`typecheck` script before declaring the task done.
+- If tests exist in the project, run them after changes that touch existing logic; do not skip this step silently.
+- If no tests exist for a new non-trivial function, mention that tests are missing rather than assuming it's fine.
+
+## Git & Commits
+- Follow Conventional Commits format (`feat:`, `fix:`, `chore:`, `refactor:`, `docs:`, etc.) for any commit message you draft.
+- Never run `git push --force` or rewrite shared branch history without explicit confirmation.
+- Do not commit `.env`, `node_modules/`, or build output directories.
+
+## Communication
+- Before making a large or destructive change (schema change, deleting files, refactor across many files), briefly explain the plan and ask for confirmation.
+- If a request is ambiguous, state the assumption you're making and proceed, rather than blocking on a clarifying question for small decisions.
+- When you're not fully certain about an API, library behavior, or syntax, say so explicitly instead of presenting a guess as fact.

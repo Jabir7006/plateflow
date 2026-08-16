@@ -1,0 +1,25 @@
+{
+  "name": "plateflow",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "pnpm@11.20.0",
+  "scripts": {
+    "dev": "pnpm --parallel --filter backend --filter frontend dev",
+    "build": "pnpm --filter backend build && pnpm --filter frontend build",
+    "start": "pnpm --parallel --filter backend --filter frontend start",
+    "lint": "pnpm --parallel --filter backend --filter frontend lint",
+    "typecheck": "pnpm --parallel --filter backend --filter frontend typecheck",
+    "format": "pnpm --parallel --filter backend --filter frontend format",
+    "db:migrate": "pnpm --filter backend db:migrate",
+    "db:generate": "pnpm --filter backend db:generate",
+    "db:studio": "pnpm --filter backend db:studio",
+    "db:push": "pnpm --filter backend db:push",
+    "prepare": "husky",
+    "commit": "commitlint"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "21.2.2",
+    "@commitlint/config-conventional": "21.2.2",
+    "husky": "9.1.7"
+  }
+}
