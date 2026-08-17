@@ -1,5 +1,3 @@
-
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -7,4 +5,73 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  fullName  String
+  email     String   @unique
+  password  String
+  role      Role
+  createdAt DateTime @default(now())
+}
+
+model MenuItem {
+  id            String       @id @default(cuid())
+  name          String
+  price         Float
+  description   String?
+  imagePublicId String?
+  imageUrl      String?
+  isAvailable   Boolean      @default(true)
+  categoryId    String
+  category      MenuCategory @relation(fields: [categoryId], references: [id])
+  orderItems    OrderItem[]
+}
+
+model Table {
+  id     String  @id @default(cuid())
+  number Int     @unique
+  qrCode String  @unique
+  orders Order[]
+}
+
+model MenuCategory {
+  id    String     @id @default(cuid())
+  name  String
+  items MenuItem[]
+}
+
+enum Role {
+  MANAGER
+  CHEF
+  WAITER
+}
+
+model Order {
+  id        String      @id @default(cuid())
+  tableId   String
+  table     Table       @relation(fields: [tableId], references: [id])
+  status    OrderStatus @default(PENDING)
+  total     Float
+  createdAt DateTime    @default(now())
+  items     OrderItem[]
+}
+
+model OrderItem {
+  id         String   @id @default(cuid())
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id])
+  menuItemId String
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+  quantity   Int
+  price      Float
+}
+
+enum OrderStatus {
+  PENDING
+  PREPARING
+  READY
+  SERVED
+  CANCELLED
 }
