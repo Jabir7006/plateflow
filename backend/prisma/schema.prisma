@@ -8,12 +8,14 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  fullName  String
-  email     String   @unique
-  password  String
-  role      Role     @default(CHEF)
-  createdAt DateTime @default(now())
+  id                 String              @id @default(cuid())
+  fullName           String
+  email              String              @unique
+  password           String
+  role               Role                @default(CHEF)
+  createdAt          DateTime            @default(now())
+  verificationTokens VerificationToken[]
+  refreshTokens      RefreshToken[]
 }
 
 model MenuItem {
@@ -74,4 +76,29 @@ enum OrderStatus {
   READY
   SERVED
   CANCELLED
+}
+
+model VerificationToken {
+  id        String    @id @default(cuid())
+  token     String    @unique
+  type      TokenType
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+}
+
+enum TokenType {
+  EMAIL_VERIFY
+  PASSWORD_RESET
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  device    String?
+  createdAt DateTime @default(now())
 }
