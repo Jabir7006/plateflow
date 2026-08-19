@@ -1,5 +1,9 @@
 import express from "express";
 import cors from "cors";
+import {
+  errorHandler,
+  notFoundHandler,
+} from "./middlewares/error.middleware.js";
 
 const app = express();
 
@@ -11,5 +15,9 @@ app.use(express.urlencoded({ extended: true }));
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });
+
+// Error Handling Middleware
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 export default app;
