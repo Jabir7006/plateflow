@@ -13,4 +13,6 @@ export const ENV = {
   DATABASE_URL: getEnv("DATABASE_URL"),
   DIRECT_URL: getEnv("DIRECT_URL"),
   NODE_ENV: getEnv("NODE_ENV", "development"),
+  SEED_MANAGER_EMAIL: getEnv("SEED_MANAGER_EMAIL"),
+  SEED_MANAGER_PASSWORD: getEnv("SEED_MANAGER_PASSWORD"),
 } as const;

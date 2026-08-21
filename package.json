@@ -2,7 +2,7 @@
   "name": "plateflow",
   "version": "1.0.0",
   "private": true,
-  "packageManager": "pnpm@11.20.0",
+  "packageManager": "pnpm@11.22.0",
   "scripts": {
     "dev": "pnpm --parallel --filter backend --filter frontend dev",
     "build": "pnpm --filter backend build && pnpm --filter frontend build",
