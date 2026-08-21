@@ -3,6 +3,7 @@ import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client.js";
 import { ENV } from "../src/config/env.js";
+import { hashValue as hashPassword } from "../src/utils/bcrypt.js";
 
 const connectionString = process.env.DATABASE_URL!;
 const pool = new Pool({ connectionString });
@@ -18,7 +19,7 @@ async function main() {
     create: {
       fullName: "Jabir Ahmad",
       email: SEED_MANAGER_EMAIL,
-      password: SEED_MANAGER_PASSWORD,
+      password: await hashPassword(SEED_MANAGER_PASSWORD),
       role: "MANAGER",
       status: "ACTIVE",
     },
