@@ -1,5 +1,4 @@
 import type { NextFunction, Request, Response } from "express";
-import { ZodError } from "zod";
 import { Prisma } from "../generated/prisma/client.js";
 import AppError from "../utils/AppError.js";
 import { HTTP_STATUS } from "../constants/http.js";
@@ -45,7 +44,7 @@ const mapPrismaError = (err: Prisma.PrismaClientKnownRequestError) => {
 };
 
 export const errorHandler = (
-  err: Error | AppError | ZodError,
+  err: Error | AppError,
   req: Request,
   res: Response,
   _next: NextFunction
@@ -65,8 +64,13 @@ export const errorHandler = (
   }
 
   // Zod validation errors
-  if (err instanceof ZodError) {
-    const formattedErrors = err.issues.map((issue) => ({
+
+  if (err.name === "ZodError" && "issues" in err) {
+    const formattedErrors = (
+      err as Error & {
+        issues: Array<{ path: (string | number)[]; message: string }>;
+      }
+    ).issues.map((issue) => ({
       field: issue.path.join("."),
       message: issue.message,
     }));
