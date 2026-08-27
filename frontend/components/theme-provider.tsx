@@ -47,6 +47,12 @@ function ThemeHotkey() {
         return
       }
 
+      // Guard: some events (e.g. browser autofill, IME composition) fire with
+      // `key` as undefined — must not throw when accessing `.toLowerCase()`.
+      if (typeof event.key !== "string") {
+        return
+      }
+
       if (event.key.toLowerCase() !== "d") {
         return
       }

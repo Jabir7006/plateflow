@@ -1,5 +1,26 @@
 # Project Rules for Cline
 
+## Research Before Applying / Responding
+- **Before applying any change or answering a technical question, do the latest research first** — don't rely on training knowledge or assumptions when something may have changed.
+- For libraries, frameworks, or APIs (e.g. Next.js, react-hook-form, TanStack Query, Prisma), verify current docs/version behavior (check the bundled `node_modules/*/docs` if present, or fetch official docs) before implementing.
+- If a claim would change the design (e.g. "autofill breaks RHF", "cookies don't work with X"), verify it against current behavior instead of trusting a general impression — and state honestly when evidence is thin/edge-case-only rather than presenting it as fact.
+- Don't over-engineer to handle an edge case that doesn't actually occur in modern browsers/tooling; keep solutions proportionate to reality.
+
+## Dependencies & Package Installations — ASK FIRST
+- **ALWAYS ask me before adding or installing any package or introducing any new feature/feature-set.** Never install packages, run `pnpm add`, or scaffold new features without explicit approval first.
+- I installed `react-hook-form` + `@hookform/resolvers` without asking earlier — that was a mistake. Do not repeat that.
+- When asking, state exactly which package(s)/feature and why, wait for my go-ahead, then implement.
+
+## Directness & Future-Proofing
+- Design and implement with **future, best-practice, and scalability** in mind — but the moment I'm wrong, **point it out clearly** instead of silently following.
+- Don't blindly implement a feature just because I ask for it. If an approach conflicts with best practice, scalability, or the codebase's existing conventions, say so explicitly before writing code.
+- If I make a choice that creates a maintainability/scalability problem, tell me rather than just complying.
+
+## Reusability — No Repeated Code
+- **Never repeat code.** If the same code section is repeated, or has a realistic chance of being repeated in the future, extract it into a **reusable util or component** instead of copying it.
+- When you see duplication already in the codebase, flag it and consolidate.
+- Before writing a new function/component, check whether an equivalent already exists and reuse it.
+
 ## Shell & Commands
 - ALWAYS run terminal commands using **fish shell** syntax, NEVER bash/zsh syntax.
   - Use `set VAR value` instead of `export VAR=value`.

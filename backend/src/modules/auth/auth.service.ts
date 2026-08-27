@@ -1,4 +1,4 @@
-import type { LoginSchema } from "@plateflow/shared";
+import type { AuthUser, LoginSchema } from "@plateflow/shared";
 import { prisma } from "../../lib/prisma.js";
 import { User } from "../../generated/prisma/client.js";
 import { UserStatus } from "../../generated/prisma/enums.js";
@@ -12,7 +12,10 @@ import {
 } from "../../utils/jwt.js";
 
 class AuthService {
-  async login(loginData: LoginSchema, device?: string) {
+  async login(
+    loginData: LoginSchema,
+    device?: string
+  ): Promise<{ user: AuthUser; accessToken: string; refreshToken: string }> {
     const { email, password } = loginData.body;
 
     const user = await prisma.user.findUnique({
@@ -59,16 +62,21 @@ class AuthService {
       },
     });
 
-    const { password: _password, ...safeUser } = user;
-
     return {
-      user: safeUser,
+      user: {
+        id: user.id,
+        fullName: user.fullName,
+        email: user.email,
+        role: user.role,
+        status: user.status,
+        createdAt: user.createdAt.toISOString(),
+      } satisfies AuthUser,
       accessToken,
       refreshToken,
     };
   }
 
-  async getMe(userId: User["id"]) {
+  async getMe(userId: User["id"]): Promise<AuthUser> {
     const user = await prisma.user.findUnique({
       where: { id: userId },
     });
@@ -81,9 +89,18 @@ class AuthService {
       throw new AppError("Account is disabled", HTTP_STATUS.FORBIDDEN);
     }
 
-    const { password: _password, ...safeUser } = user;
+    if (!user.password) {
+      throw new AppError("User not found", HTTP_STATUS.NOT_FOUND);
+    }
 
-    return safeUser;
+    return {
+      id: user.id,
+      fullName: user.fullName,
+      email: user.email,
+      role: user.role,
+      status: user.status,
+      createdAt: user.createdAt.toISOString(),
+    } satisfies AuthUser;
   }
 }
 
