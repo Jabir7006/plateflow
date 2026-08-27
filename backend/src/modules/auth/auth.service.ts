@@ -1,5 +1,6 @@
 import type { LoginSchema } from "@plateflow/shared";
 import { prisma } from "../../lib/prisma.js";
+import { User } from "../../generated/prisma/client.js";
 import { UserStatus } from "../../generated/prisma/enums.js";
 import AppError from "../../utils/AppError.js";
 import { HTTP_STATUS } from "../../constants/http.js";
@@ -65,6 +66,24 @@ class AuthService {
       accessToken,
       refreshToken,
     };
+  }
+
+  async getMe(userId: User["id"]) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new AppError("User not found", HTTP_STATUS.NOT_FOUND);
+    }
+
+    if (user.status === UserStatus.DISABLED) {
+      throw new AppError("Account is disabled", HTTP_STATUS.FORBIDDEN);
+    }
+
+    const { password: _password, ...safeUser } = user;
+
+    return safeUser;
   }
 }
 
