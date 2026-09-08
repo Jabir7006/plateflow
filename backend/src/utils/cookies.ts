@@ -4,7 +4,7 @@ import { TOKEN_TTL } from "../constants/auth.js";
 
 const { NODE_ENV } = ENV;
 
-export const REFRESH_PATH = "/api/v1/auth/refresh";
+export const REFRESH_PATH = `/api/v1/auth/refresh`;
 
 const defaults: CookieOptions = {
   httpOnly: true,

@@ -118,6 +118,12 @@ class AuthService {
     return { user: toAuthUser(stored.user), ...tokens };
   }
 
+  async logoutCurrentSession(rawRefreshToken: string): Promise<void> {
+    const { sessionId } = verifyRefreshToken(rawRefreshToken);
+
+    await this.revokeSession(sessionId, RevokeReason.LOGOUT);
+  }
+
   async getMe(userId: User["id"]): Promise<AuthUser> {
     const user = await prisma.user.findUnique({
       where: { id: userId },

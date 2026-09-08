@@ -1,4 +1,5 @@
 import type { Request } from "express";
+import jwt from "jsonwebtoken";
 import catchAsync from "../../utils/catchAsync.js";
 import { sendResponse } from "../../utils/ApiResponse.js";
 import { clearAuthCookies, setAuthCookies } from "../../utils/cookies.js";
@@ -48,6 +49,26 @@ export const refresh = catchAsync(async (req, res) => {
 
     throw error;
   }
+});
+
+export const logout = catchAsync(async (req, res) => {
+  const token = req.cookies?.refreshToken;
+
+  if (token) {
+    try {
+      await authService.logoutCurrentSession(token);
+    } catch (error) {
+      if (!(
+        error instanceof jwt.JsonWebTokenError ||
+        error instanceof jwt.TokenExpiredError
+      )) {
+        throw error;
+      }
+    }
+  }
+
+  clearAuthCookies(res);
+  sendResponse(res, HTTP_STATUS.SUCCESS, null, "Logged out successfully");
 });
 
 export const getMe = catchAsync(async (req, res) => {
