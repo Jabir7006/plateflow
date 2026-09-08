@@ -1,5 +1,6 @@
 import type { CookieOptions, Response } from "express";
 import { ENV } from "../config/env.js";
+import { TOKEN_TTL } from "../constants/auth.js";
 
 const { NODE_ENV } = ENV;
 
@@ -14,14 +15,14 @@ const defaults: CookieOptions = {
 export const getAccessTokenCookieOptions = (): CookieOptions => {
   return {
     ...defaults,
-    maxAge: 15 * 60 * 1000,
+    maxAge: TOKEN_TTL.ACCESS,
   };
 };
 
 export const getRefreshTokenCookieOptions = (): CookieOptions => {
   return {
     ...defaults,
-    maxAge: 30 * 24 * 60 * 60 * 1000,
+    maxAge: TOKEN_TTL.REFRESH,
     path: REFRESH_PATH,
   };
 };

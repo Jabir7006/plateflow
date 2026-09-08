@@ -76,13 +76,22 @@ model VerificationToken {
 }
 
 model RefreshToken {
-  id        String   @id @default(cuid())
-  token     String   @unique
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt DateTime
-  device    String?
+  id               String        @id @default(cuid())
+  tokenHash        String        @unique
+  userId           String
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId        String
+  expiresAt        DateTime
+  sessionExpiresAt DateTime
+  revokedAt        DateTime?
+  revokedReason    RevokeReason?
+  device           String?
+  ip               String?
+
   createdAt DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([userId, expiresAt])
 }
 
 enum Role {
@@ -108,4 +117,12 @@ enum OrderStatus {
 enum TokenType {
   PASSWORD_RESET
   STAFF_INVITE
+}
+
+enum RevokeReason {
+  ROTATED
+  REUSE_DETECTED
+  LOGOUT
+  SESSION_EXPIRED
+  USER_DISABLED
 }

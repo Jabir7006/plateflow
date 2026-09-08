@@ -13,7 +13,7 @@ import { useLogin, type LoginInput } from "../hooks/use-login"
 
 const credentialsSchema = loginSchema.shape.body
 
-const AFTER_LOGIN_ROUTE = "/"
+const AFTER_LOGIN_ROUTE = "/dashboard"
 
 const LoginForm = () => {
   const router = useRouter()
