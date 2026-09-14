@@ -4,7 +4,9 @@ import { TOKEN_TTL } from "../constants/auth.js";
 
 const { NODE_ENV } = ENV;
 
-export const REFRESH_PATH = `/api/v1/auth/refresh`;
+export const AUTH_PATH = `/api/v1/auth`;
+const LEGACY_REFRESH_PATH = `${AUTH_PATH}/refresh`;
+const API_PATH = `/api/v1`;
 
 const defaults: CookieOptions = {
   httpOnly: true,
@@ -16,6 +18,7 @@ export const getAccessTokenCookieOptions = (): CookieOptions => {
   return {
     ...defaults,
     maxAge: TOKEN_TTL.ACCESS,
+    path: API_PATH,
   };
 };
 
@@ -23,7 +26,7 @@ export const getRefreshTokenCookieOptions = (): CookieOptions => {
   return {
     ...defaults,
     maxAge: TOKEN_TTL.REFRESH,
-    path: REFRESH_PATH,
+    path: AUTH_PATH,
   };
 };
 
@@ -33,16 +36,28 @@ type Params = {
   refreshToken?: string;
 };
 
+// TODO: remove once the cookie-path migration is done — i.e. once the longest
+// session that could hold a legacy path (SESSION_ABSOLUTE, 90 days) has expired.
+// The extra clearCookie calls below exist only to evict cookies set under the
+// old paths, and they ship on every login and refresh until removed.
 export const setAuthCookies = ({ res, accessToken, refreshToken }: Params) => {
-  res.cookie("accessToken", accessToken, getAccessTokenCookieOptions());
+  res
+    .clearCookie("accessToken", { path: "/" })
+    .clearCookie("accessToken", { path: AUTH_PATH })
+    .cookie("accessToken", accessToken, getAccessTokenCookieOptions());
 
   if (refreshToken) {
-    res.cookie("refreshToken", refreshToken, getRefreshTokenCookieOptions());
+    res
+      .clearCookie("refreshToken", { path: LEGACY_REFRESH_PATH })
+      .cookie("refreshToken", refreshToken, getRefreshTokenCookieOptions());
   }
 };
 
 export const clearAuthCookies = (res: Response) => {
   return res
-    .clearCookie("accessToken")
-    .clearCookie("refreshToken", { path: REFRESH_PATH });
+    .clearCookie("accessToken", { path: API_PATH })
+    .clearCookie("accessToken", { path: AUTH_PATH })
+    .clearCookie("accessToken", { path: "/" })
+    .clearCookie("refreshToken", { path: AUTH_PATH })
+    .clearCookie("refreshToken", { path: LEGACY_REFRESH_PATH });
 };

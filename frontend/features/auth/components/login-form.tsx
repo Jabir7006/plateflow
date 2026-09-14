@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { loginSchema } from "@plateflow/shared"
@@ -9,14 +9,14 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { getErrorMessage } from "@/lib/api-error"
+import { getSafeReturnPath } from "../redirects"
 import { useLogin, type LoginInput } from "../hooks/use-login"
 
 const credentialsSchema = loginSchema.shape.body
 
-const AFTER_LOGIN_ROUTE = "/dashboard"
-
 const LoginForm = () => {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const login = useLogin()
 
   const {
@@ -32,7 +32,10 @@ const LoginForm = () => {
 
   function onValidSubmit(data: LoginInput) {
     login.mutate(data, {
-      onSuccess: () => router.push(AFTER_LOGIN_ROUTE),
+      onSuccess: () => {
+        router.replace(getSafeReturnPath(searchParams.get("next")))
+        router.refresh()
+      },
     })
   }
 

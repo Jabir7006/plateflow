@@ -113,7 +113,7 @@ class AuthService {
 
     const tokens = await this.rotate(stored, context);
 
-    await this.pruneDeadTokens(stored.userId);
+    this.schedulePruneDeadTokens(stored.userId);
 
     return { user: toAuthUser(stored.user), ...tokens };
   }
@@ -130,7 +130,7 @@ class AuthService {
     });
 
     if (!user) {
-      throw new AppError("User not found", HTTP_STATUS.NOT_FOUND);
+      throw new AppError("Authentication required", HTTP_STATUS.UNAUTHORIZED);
     }
 
     if (user.status === UserStatus.DISABLED) {
@@ -138,7 +138,7 @@ class AuthService {
     }
 
     if (!user.password) {
-      throw new AppError("User not found", HTTP_STATUS.NOT_FOUND);
+      throw new AppError("Authentication required", HTTP_STATUS.UNAUTHORIZED);
     }
 
     return toAuthUser(user);
@@ -270,6 +270,17 @@ class AuthService {
     await prisma.refreshToken.updateMany({
       where: { sessionId, revokedAt: null },
       data: { revokedAt: new Date(), revokedReason: reason },
+    });
+  }
+
+  // Detached: a failure here happens after rotate() committed, and must not
+  // fail the response that carries the new cookies. Needs a long-lived process.
+  private schedulePruneDeadTokens(userId: User["id"]): void {
+    void this.pruneDeadTokens(userId).catch((error: unknown) => {
+      console.error("Failed to prune dead refresh tokens:", {
+        userId,
+        error,
+      });
     });
   }
 

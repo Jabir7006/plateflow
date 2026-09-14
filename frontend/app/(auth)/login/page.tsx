@@ -29,6 +29,9 @@ export default function LoginPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {/* LoginForm reads useSearchParams; the (auth) layout's Suspense
+                boundary covers it, and the GuestRoute gate renders its own
+                loading state before this ever mounts. */}
             <LoginForm />
             <div className="relative mt-4 rounded-lg border border-border bg-muted/50 px-4 py-3">
               <div className="flex items-start gap-2">

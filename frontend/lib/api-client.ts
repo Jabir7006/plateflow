@@ -1,4 +1,7 @@
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api/v1"
+// Must stay same-origin: the session lives in HttpOnly cookies scoped to
+// /api/v1 with sameSite=strict, so a cross-origin API URL would silently stop
+// sending them. All API traffic goes through the Next rewrite in next.config.ts.
+export const API_BASE = "/api/v1"
 
 interface ErrorEnvelope {
   success: false

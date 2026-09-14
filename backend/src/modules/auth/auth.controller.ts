@@ -5,10 +5,7 @@ import { sendResponse } from "../../utils/ApiResponse.js";
 import { clearAuthCookies, setAuthCookies } from "../../utils/cookies.js";
 import AppError from "../../utils/AppError.js";
 import { HTTP_STATUS } from "../../constants/http.js";
-import authService, {
-  ConcurrentRefreshError,
-  type SessionContext,
-} from "./auth.service.js";
+import authService, { type SessionContext } from "./auth.service.js";
 
 const sessionContextFrom = (req: Request): SessionContext => ({
   device: req.headers["user-agent"],
@@ -28,14 +25,27 @@ export const login = catchAsync(async (req, res) => {
   sendResponse(res, HTTP_STATUS.SUCCESS, user, "Login successful");
 });
 
+// Only a rejected credential is worth discarding cookies for. A 5xx leaves the
+// refresh token valid in the database, so clearing would log the user out for
+// the duration of a database blip. A 409 is excluded too: a sibling request is
+// rotating this session, so the winner's cookies must survive this response.
+//
+// JWT failures count as rejections even though they are not AppErrors — they
+// surface from verifyRefreshToken and are served as 401 by the error middleware.
+const isCredentialRejection = (error: unknown): boolean =>
+  error instanceof jwt.JsonWebTokenError ||
+  (error instanceof AppError &&
+    (error.statusCode === HTTP_STATUS.UNAUTHORIZED ||
+      error.statusCode === HTTP_STATUS.FORBIDDEN));
+
 export const refresh = catchAsync(async (req, res) => {
   const token = req.cookies?.refreshToken;
 
-  if (!token) {
-    throw new AppError("Refresh token missing", HTTP_STATUS.UNAUTHORIZED);
-  }
-
   try {
+    if (!token) {
+      throw new AppError("Refresh token missing", HTTP_STATUS.UNAUTHORIZED);
+    }
+
     const { user, accessToken, refreshToken } =
       await authService.refreshSession(token, sessionContextFrom(req));
 
@@ -43,7 +53,7 @@ export const refresh = catchAsync(async (req, res) => {
 
     sendResponse(res, HTTP_STATUS.SUCCESS, user, "Session refreshed");
   } catch (error) {
-    if (!(error instanceof ConcurrentRefreshError)) {
+    if (isCredentialRejection(error)) {
       clearAuthCookies(res);
     }
 
@@ -53,21 +63,31 @@ export const refresh = catchAsync(async (req, res) => {
 
 export const logout = catchAsync(async (req, res) => {
   const token = req.cookies?.refreshToken;
+  let revocationError: unknown = null;
 
   if (token) {
     try {
       await authService.logoutCurrentSession(token);
     } catch (error) {
-      if (!(
+      const isUnusableToken =
         error instanceof jwt.JsonWebTokenError ||
-        error instanceof jwt.TokenExpiredError
-      )) {
-        throw error;
+        error instanceof jwt.TokenExpiredError;
+
+      if (!isUnusableToken) {
+        revocationError = error;
       }
     }
   }
 
+  // Surrender this browser's credentials even when revocation failed. Otherwise a
+  // logout the server did receive would leave the device able to resume the
+  // session on the next reload, while the user believes they signed out.
   clearAuthCookies(res);
+
+  if (revocationError) {
+    throw revocationError;
+  }
+
   sendResponse(res, HTTP_STATUS.SUCCESS, null, "Logged out successfully");
 });
 
