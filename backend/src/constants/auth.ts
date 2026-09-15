@@ -16,6 +16,7 @@ export const TOKEN_TTL = {
   ACCESS: 15 * MINUTE,
   REFRESH: 30 * DAY,
   SESSION_ABSOLUTE: 90 * DAY,
+  STAFF_INVITE: 7 * DAY,
 } as const;
 
 export const REFRESH_REUSE_GRACE = 10 * SECOND;

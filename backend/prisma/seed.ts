@@ -15,12 +15,13 @@ const { SEED_MANAGER_EMAIL, SEED_MANAGER_PASSWORD } = ENV;
 async function main() {
   await prisma.user.upsert({
     where: { email: SEED_MANAGER_EMAIL },
-    update: {},
+
+    update: { role: "OWNER" },
     create: {
       fullName: "Jabir Ahmad",
       email: SEED_MANAGER_EMAIL,
       password: await hashPassword(SEED_MANAGER_PASSWORD),
-      role: "MANAGER",
+      role: "OWNER",
       status: "ACTIVE",
     },
   });

@@ -95,6 +95,7 @@ model RefreshToken {
 }
 
 enum Role {
+  OWNER
   MANAGER
   CHEF
   WAITER
