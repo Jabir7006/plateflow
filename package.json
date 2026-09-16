@@ -4,17 +4,17 @@
   "private": true,
   "packageManager": "pnpm@12.4.1",
   "scripts": {
-    "dev": "pnpm --parallel --filter backend --filter frontend dev",
-    "build": "pnpm --filter backend build && pnpm --filter frontend build",
+    "dev": "pnpm --filter @plateflow/shared build && pnpm --parallel --filter @plateflow/shared --filter backend --filter frontend dev",
+    "build": "pnpm --filter @plateflow/shared build && pnpm --filter backend build && pnpm --filter frontend build",
     "start": "pnpm --parallel --filter backend --filter frontend start",
     "lint": "pnpm --parallel --filter backend --filter frontend lint",
-    "typecheck": "pnpm --parallel --filter backend --filter frontend typecheck",
+    "typecheck": "pnpm --filter @plateflow/shared build && pnpm --parallel --filter backend --filter frontend typecheck",
     "format": "pnpm --parallel --filter backend --filter frontend format",
     "db:migrate": "pnpm --filter backend db:migrate",
     "db:generate": "pnpm --filter backend db:generate",
     "db:studio": "pnpm --filter backend db:studio",
     "db:push": "pnpm --filter backend db:push",
-    "prepare": "husky",
+    "prepare": "husky && pnpm --filter @plateflow/shared build",
     "commit": "commitlint"
   },
   "devDependencies": {
