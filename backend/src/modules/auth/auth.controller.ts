@@ -1,4 +1,5 @@
 import type { Request } from "express";
+import type { AcceptInviteSchema } from "@plateflow/shared";
 import jwt from "jsonwebtoken";
 import catchAsync from "../../utils/catchAsync.js";
 import { sendResponse } from "../../utils/ApiResponse.js";
@@ -23,6 +24,20 @@ export const login = catchAsync(async (req, res) => {
   setAuthCookies({ res, accessToken, refreshToken });
 
   sendResponse(res, HTTP_STATUS.SUCCESS, user, "Login successful");
+});
+
+export const acceptInvite = catchAsync(async (req, res) => {
+  const { token, password } = req.body as AcceptInviteSchema["body"];
+
+  const { user, accessToken, refreshToken } = await authService.acceptInvite(
+    token,
+    password,
+    sessionContextFrom(req)
+  );
+
+  setAuthCookies({ res, accessToken, refreshToken });
+
+  sendResponse(res, HTTP_STATUS.CREATED, user, "Invitation accepted");
 });
 
 // Only a rejected credential is worth discarding cookies for. A 5xx leaves the

@@ -30,8 +30,12 @@ export const loginSchema = z.object({
 });
 
 export const acceptInviteSchema = z.object({
-  token: requiredString("Token is required"),
-  password,
+  body: z.object({
+    token: requiredString("Invitation token is required")
+      .trim()
+      .min(1, "Invitation token is required"),
+    password,
+  }),
 });
 
 export type LoginSchema = z.infer<typeof loginSchema>;

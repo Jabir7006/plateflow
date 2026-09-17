@@ -1,7 +1,16 @@
 import type { AuthUser, LoginSchema } from "@plateflow/shared";
 import { prisma } from "../../lib/prisma.js";
-import { Prisma, RefreshToken, User } from "../../generated/prisma/client.js";
-import { RevokeReason, UserStatus } from "../../generated/prisma/enums.js";
+import {
+  Prisma,
+  RefreshToken,
+  User,
+  VerificationToken,
+} from "../../generated/prisma/client.js";
+import {
+  RevokeReason,
+  TokenType,
+  UserStatus,
+} from "../../generated/prisma/enums.js";
 import AppError from "../../utils/AppError.js";
 import { HTTP_STATUS } from "../../constants/http.js";
 import {
@@ -9,7 +18,7 @@ import {
   REFRESH_TOKEN_RETENTION,
   TOKEN_TTL,
 } from "../../constants/auth.js";
-import { compareValue } from "../../utils/bcrypt.js";
+import { compareValue, hashValue } from "../../utils/bcrypt.js";
 import { randomId, sha256 } from "../../utils/crypto.js";
 import {
   accessTokenSignOptions,
@@ -37,6 +46,8 @@ type SessionChain = {
 };
 
 type StoredRefreshToken = RefreshToken & { user: User };
+
+type UsableInvite = VerificationToken & { user: User };
 
 export class ConcurrentRefreshError extends AppError {
   constructor() {
@@ -80,6 +91,60 @@ class AuthService {
       throw new AppError("Account is disabled", HTTP_STATUS.FORBIDDEN);
     }
 
+    const tokens = await this.issueTokens(
+      user,
+      {
+        sessionId: randomId(16),
+        sessionExpiresAt: new Date(Date.now() + TOKEN_TTL.SESSION_ABSOLUTE),
+      },
+      context
+    );
+
+    return { user: toAuthUser(user), ...tokens };
+  }
+
+  async acceptInvite(
+    rawToken: string,
+    password: string,
+    context: SessionContext = {}
+  ): Promise<AuthSession> {
+    const invite = await this.loadUsableInvite(rawToken);
+
+    // Hashed before the transaction opens: bcrypt is deliberately slow, and
+    // holding a pooled connection for its duration would tie up the pool for the
+    // span of every signup.
+    const passwordHash = await hashValue(password);
+
+    const user = await prisma.$transaction(async (tx) => {
+      // Claiming the invitation means deleting it. A second request arriving with
+      // the same link finds nothing to delete and stops here, before it can
+      // overwrite the password the first one just chose.
+      const claimed = await tx.verificationToken.deleteMany({
+        where: { id: invite.id },
+      });
+
+      if (claimed.count === 0) {
+        throw new AppError(
+          "This invitation has already been accepted",
+          HTTP_STATUS.CONFLICT
+        );
+      }
+
+      // Any other outstanding invitation for this account dies with the one that
+      // was spent, so an older link cannot be replayed into a second password
+      // reset afterwards.
+      await tx.verificationToken.deleteMany({
+        where: { userId: invite.userId, type: TokenType.STAFF_INVITE },
+      });
+
+      return tx.user.update({
+        where: { id: invite.userId },
+        data: { password: passwordHash, status: UserStatus.ACTIVE },
+      });
+    });
+
+    // The invitee chose a password seconds ago, so hand them the session they
+    // were heading for rather than a second trip through the login form.
     const tokens = await this.issueTokens(
       user,
       {
@@ -142,6 +207,44 @@ class AuthService {
     }
 
     return toAuthUser(user);
+  }
+
+  private async loadUsableInvite(rawToken: string): Promise<UsableInvite> {
+    // Matched on the digest: the raw value was never stored, so a database read
+    // cannot be turned back into a working link.
+    const invite = await prisma.verificationToken.findUnique({
+      where: { token: sha256(rawToken) },
+      include: { user: true },
+    });
+
+    if (!invite || invite.type !== TokenType.STAFF_INVITE) {
+      throw new AppError(
+        "This invitation link is not valid",
+        HTTP_STATUS.BAD_REQUEST
+      );
+    }
+
+    if (invite.expiresAt.getTime() <= Date.now()) {
+      throw new AppError(
+        "This invitation has expired, ask your manager to send a new one",
+        HTTP_STATUS.BAD_REQUEST
+      );
+    }
+
+    if (invite.user.status === UserStatus.DISABLED) {
+      throw new AppError("Account is disabled", HTTP_STATUS.FORBIDDEN);
+    }
+
+    // A spent invitation row is deleted, so an active account here means the
+    // account was activated some other way and this link is simply stale.
+    if (invite.user.status === UserStatus.ACTIVE) {
+      throw new AppError(
+        "This invitation has already been accepted",
+        HTTP_STATUS.CONFLICT
+      );
+    }
+
+    return invite;
   }
 
   private async rotate(
