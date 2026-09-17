@@ -1,4 +1,4 @@
-import type { AuthUser, LoginSchema } from "@plateflow/shared";
+import type { AuthUser, InvitePreview, LoginSchema } from "@plateflow/shared";
 import { prisma } from "../../lib/prisma.js";
 import {
   Prisma,
@@ -155,6 +155,21 @@ class AuthService {
     );
 
     return { user: toAuthUser(user), ...tokens };
+  }
+
+  // Read-only: the same checks acceptance runs, without spending the token, so
+  // the invitee sees "this link expired" on page load instead of after typing a
+  // password. Reuses loadUsableInvite so the two entry points cannot drift into
+  // disagreeing about what a usable invitation is.
+  async verifyInvite(rawToken: string): Promise<InvitePreview> {
+    const { user, expiresAt } = await this.loadUsableInvite(rawToken);
+
+    return {
+      fullName: user.fullName,
+      email: user.email,
+      role: user.role,
+      expiresAt: expiresAt.toISOString(),
+    };
   }
 
   async refreshSession(

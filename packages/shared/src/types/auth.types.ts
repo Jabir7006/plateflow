@@ -16,3 +16,14 @@ export interface AuthUser {
   status: UserStatus;
   createdAt: string;
 }
+
+// What GET /auth/verify-invite discloses to whoever holds a live link: enough
+// for the page to greet the invitee and name the role they were invited into,
+// and nothing beyond the invitation itself. `role` is the wide Role rather than
+// InvitableRole because it is read from the account, not from the request.
+export interface InvitePreview {
+  fullName: string;
+  email: string;
+  role: Role;
+  expiresAt: string;
+}

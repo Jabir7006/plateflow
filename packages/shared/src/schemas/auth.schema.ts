@@ -12,6 +12,10 @@ const password = z
   .min(6, "Password must be at least 6 characters long");
 const requiredString = (msg: string) => z.string(msg);
 
+const inviteToken = requiredString("Invitation token is required")
+  .trim()
+  .min(1, "Invitation token is required");
+
 export const inviteSchema = z.object({
   body: z.object({
     fullName: requiredString("Name is required")
@@ -31,13 +35,18 @@ export const loginSchema = z.object({
 
 export const acceptInviteSchema = z.object({
   body: z.object({
-    token: requiredString("Invitation token is required")
-      .trim()
-      .min(1, "Invitation token is required"),
+    token: inviteToken,
     password,
+  }),
+});
+
+export const verifyInviteSchema = z.object({
+  query: z.object({
+    token: inviteToken,
   }),
 });
 
 export type LoginSchema = z.infer<typeof loginSchema>;
 export type InviteSchema = z.infer<typeof inviteSchema>;
 export type AcceptInviteSchema = z.infer<typeof acceptInviteSchema>;
+export type VerifyInviteSchema = z.infer<typeof verifyInviteSchema>;

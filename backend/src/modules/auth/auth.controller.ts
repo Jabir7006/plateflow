@@ -1,5 +1,5 @@
 import type { Request } from "express";
-import type { AcceptInviteSchema } from "@plateflow/shared";
+import type { AcceptInviteSchema, VerifyInviteSchema } from "@plateflow/shared";
 import jwt from "jsonwebtoken";
 import catchAsync from "../../utils/catchAsync.js";
 import { sendResponse } from "../../utils/ApiResponse.js";
@@ -24,6 +24,18 @@ export const login = catchAsync(async (req, res) => {
   setAuthCookies({ res, accessToken, refreshToken });
 
   sendResponse(res, HTTP_STATUS.SUCCESS, user, "Login successful");
+});
+
+export const verifyInvite = catchAsync(async (req, res) => {
+  const { token } = req.query as VerifyInviteSchema["query"];
+
+  const invite = await authService.verifyInvite(token);
+
+  // The token is a credential and it travels in the URL, so nothing on the path
+  // may keep a copy of this response.
+  res.set("Cache-Control", "no-store");
+
+  sendResponse(res, HTTP_STATUS.SUCCESS, invite, "Invitation is valid");
 });
 
 export const acceptInvite = catchAsync(async (req, res) => {
