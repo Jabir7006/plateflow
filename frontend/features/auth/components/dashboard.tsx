@@ -9,6 +9,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { InviteStaffButton } from "@/features/staff/components/invite-staff-button"
+import { getInvitableRolesFor } from "@/features/staff/permissions"
 import { useLogout } from "../hooks/use-logout"
 import { useAuthStore } from "../store/auth-store"
 
@@ -17,6 +19,8 @@ export function Dashboard() {
   const logout = useLogout()
 
   if (!user) return null
+
+  const canInviteStaff = getInvitableRolesFor(user.role).length > 0
 
   return (
     <main className="min-h-svh bg-background">
@@ -28,14 +32,17 @@ export function Dashboard() {
             </div>
             <span className="font-semibold">PlateFlow</span>
           </div>
-          <Button
-            variant="outline"
-            disabled={logout.isPending}
-            onClick={() => logout.mutate()}
-          >
-            <LogOut />
-            {logout.isPending ? "Logging out…" : "Log out"}
-          </Button>
+          <div className="flex items-center gap-2">
+            {canInviteStaff ? <InviteStaffButton /> : null}
+            <Button
+              variant="outline"
+              disabled={logout.isPending}
+              onClick={() => logout.mutate()}
+            >
+              <LogOut />
+              {logout.isPending ? "Logging out…" : "Log out"}
+            </Button>
+          </div>
         </div>
       </header>
 

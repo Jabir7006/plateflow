@@ -11,4 +11,5 @@ export type {
   UserStatus,
   AuthUser,
   InvitePreview,
+  InvitedStaff,
 } from "./types/auth.types.js";

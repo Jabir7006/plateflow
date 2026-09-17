@@ -1,7 +1,6 @@
 export const ROLES = ["OWNER", "MANAGER", "CHEF", "WAITER"] as const;
 export type Role = (typeof ROLES)[number];
 
-
 export const INVITABLE_ROLES = ["MANAGER", "CHEF", "WAITER"] as const;
 export type InvitableRole = (typeof INVITABLE_ROLES)[number];
 
@@ -26,4 +25,18 @@ export interface InvitePreview {
   email: string;
   role: Role;
   expiresAt: string;
+}
+
+export const ROLE_LABELS: Record<InvitableRole, string> = {
+  MANAGER: "Manager",
+  CHEF: "Chef",
+  WAITER: "Waiter",
+};
+export interface InvitedStaff {
+  id: string;
+  fullName: string;
+  email: string;
+  role: Role;
+  status: UserStatus;
+  inviteExpiresAt: string;
 }

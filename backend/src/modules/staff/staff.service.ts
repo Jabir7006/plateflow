@@ -1,4 +1,4 @@
-import type { InviteSchema, Role, UserStatus } from "@plateflow/shared";
+import type { InviteSchema, InvitedStaff, Role } from "@plateflow/shared";
 import { prisma } from "../../lib/prisma.js";
 import {
   TokenType,
@@ -13,15 +13,6 @@ import { sendEmail } from "../../lib/mail.js";
 import { buildStaffInviteEmail } from "./staff-invite.template.js";
 
 type InviteInput = InviteSchema["body"];
-
-export type InvitedStaff = {
-  id: string;
-  fullName: string;
-  email: string;
-  role: Role;
-  status: UserStatus;
-  inviteExpiresAt: string;
-};
 
 class StaffService {
   async invite(
@@ -97,7 +88,7 @@ class StaffService {
         to: user.email,
         ...buildStaffInviteEmail({
           fullName: user.fullName,
-      
+
           role,
           inviteUrl,
           expiresAt,

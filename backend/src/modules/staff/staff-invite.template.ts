@@ -1,10 +1,5 @@
+import { ROLE_LABELS } from "@plateflow/shared";
 import type { InvitableRole } from "@plateflow/shared";
-
-const ROLE_LABELS: Record<InvitableRole, string> = {
-  MANAGER: "Manager",
-  CHEF: "Chef",
-  WAITER: "Waiter",
-};
 
 // A name is manager-supplied free text that ends up inside the email body, so it
 // is escaped rather than interpolated raw: markup in a name would otherwise let
