@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/select"
 import { ApiError } from "@/lib/api-client"
 import { getErrorMessage } from "@/lib/api-error"
+import { extractFieldErrors } from "@/lib/api-field-errors"
 import { useAuthStore } from "@/features/auth/store/auth-store"
 import type { InviteInput } from "../api"
 import { useInviteStaff } from "../hooks/use-invite-staff"
@@ -75,24 +76,13 @@ export function InviteStaffDialog({
 
   const invitableRoles = user ? getInvitableRolesFor(user.role) : []
 
+  // Every way out of the dialog funnels through here (X button, Escape,
+  // backdrop click, Cancel): a pending request may not be orphaned by a
+  // close, and a failed request never survives to greet the next open.
   function handleOpenChange(nextOpen: boolean) {
     if (!nextOpen && isPending) return
     if (!nextOpen) resetInviteState()
     onOpenChange(nextOpen)
-  }
-
-  function applyServerFieldErrors(error: unknown): boolean {
-    if (!(error instanceof ApiError) || !error.errors?.length) return false
-
-    let matched = false
-    for (const { field, message } of error.errors) {
-      const name = field.replace(/^body\./, "")
-      if (name === "fullName" || name === "email" || name === "role") {
-        setError(name, { message }, { shouldFocus: !matched })
-        matched = true
-      }
-    }
-    return matched
   }
 
   function onValidSubmit(values: InviteInput) {
@@ -111,18 +101,22 @@ export function InviteStaffDialog({
           return
         }
 
-        applyServerFieldErrors(error)
+        // Field-level server errors (schema drift, crafted requests) map onto
+        // their inputs; anything else falls through to the banner below.
+        for (const { field, message } of extractFieldErrors(error, [
+          "fullName",
+          "email",
+          "role",
+        ])) {
+          setError(field as keyof InviteInput, { message })
+        }
       },
     })
   }
 
   // Inline field errors win; the banner only speaks when nothing mapped.
   const hasMappedFieldErrors =
-    invite.error instanceof ApiError &&
-    (invite.error.errors ?? []).some(({ field }) => {
-      const name = field.replace(/^body\./, "")
-      return name === "fullName" || name === "email" || name === "role"
-    })
+    extractFieldErrors(invite.error, ["fullName", "email", "role"]).length > 0
 
   const errorMessage =
     invite.isError && !hasMappedFieldErrors
