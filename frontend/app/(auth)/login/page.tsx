@@ -1,13 +1,12 @@
 import LoginForm from "@/features/auth/components/login-form"
-import { Mail, UtensilsCrossed } from "lucide-react"
+import { BrandLogo } from "@/components/brand-logo"
+import { Mail } from "lucide-react"
 
 export default function LoginPage() {
   return (
     <main className="flex min-h-svh items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm">
-        <div className="flex size-10 items-center justify-center rounded-lg bg-blue-600">
-          <UtensilsCrossed className="size-5 text-white" />
-        </div>
+        <BrandLogo />
 
         <h1 className="mt-6 text-2xl font-semibold">Log in to PlateFlow</h1>
         <p className="mt-1 text-sm text-muted-foreground">Staff access only</p>

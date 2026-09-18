@@ -14,7 +14,7 @@ export function InviteStaffButton() {
 
   return (
     <>
-      <Button onClick={() => setOpen(true)}>
+      <Button variant="outline" onClick={() => setOpen(true)}>
         <UserPlus />
         Invite staff
       </Button>
