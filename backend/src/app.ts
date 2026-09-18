@@ -7,6 +7,7 @@ import {
 } from "./middlewares/error.middleware.js";
 import authRoutes from "./modules/auth/auth.routes.js";
 import staffRoutes from "./modules/staff/staff.routes.js";
+import menuRoutes from "./modules/menu/menu.routes.js";
 
 const app = express();
 
@@ -29,6 +30,7 @@ app.get("/health", (_req, res) => {
 // Routes
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/staff", staffRoutes);
+app.use("/api/v1/menu", menuRoutes);
 
 // Error Handling Middleware
 app.use(notFoundHandler);
