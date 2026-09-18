@@ -1,10 +1,32 @@
-import type { AuthUser, LoginSchema } from "@plateflow/shared"
+import type {
+  AcceptInviteSchema,
+  AuthUser,
+  InvitePreview,
+  LoginSchema,
+} from "@plateflow/shared"
 import { ApiError, apiRequest } from "@/lib/api-client"
 
 export type LoginInput = LoginSchema["body"]
 
 export async function loginUser(input: LoginInput): Promise<AuthUser> {
   return apiRequest<AuthUser>("/auth/login", {
+    method: "POST",
+    body: input,
+  })
+}
+
+export type AcceptInviteInput = AcceptInviteSchema["body"]
+
+// The invite preview greets the invite with who they are and what role they
+// were invited into; it carries no credentials beyond the token in the URL.
+export function verifyInvite(token: string): Promise<InvitePreview> {
+  return apiRequest<InvitePreview>(
+    `/auth/verify-invite?token=${encodeURIComponent(token)}`
+  )
+}
+
+export function acceptInvite(input: AcceptInviteInput): Promise<AuthUser> {
+  return apiRequest<AuthUser>("/auth/accept-invite", {
     method: "POST",
     body: input,
   })
@@ -21,7 +43,6 @@ export function refreshSession(): Promise<AuthUser> {
 export function logoutUser(): Promise<null> {
   return apiRequest<null>("/auth/logout", { method: "POST" })
 }
-
 let refreshPromise: Promise<AuthUser> | null = null
 
 function refreshSessionOnce(): Promise<AuthUser> {
@@ -46,7 +67,6 @@ export class SessionRotationPendingError extends Error {
     this.name = "SessionRotationPendingError"
   }
 }
-
 /**
  * A 409 means a sibling request (usually another tab) already rotated the shared
  * refresh cookie, so this session is alive and its fresh cookies are on the way.
