@@ -46,7 +46,7 @@ export function TableActions({ table, trigger }: TableActionsProps) {
             )
           }
         />
-        <DropdownMenuContent align="end">
+        <DropdownMenuContent align="end" className="w-44">
           <DropdownMenuItem onClick={() => setQrOpen(true)}>
             <QrCode />
             View QR
@@ -76,7 +76,11 @@ export function TableActions({ table, trigger }: TableActionsProps) {
         onOpenChange={setRegenerateOpen}
         table={table}
       />
-      <TableFormDialog open={editOpen} onOpenChange={setEditOpen} table={table} />
+      <TableFormDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        table={table}
+      />
       <DeleteTableDialog
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
