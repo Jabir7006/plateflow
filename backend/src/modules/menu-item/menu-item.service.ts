@@ -6,6 +6,7 @@ import type {
 } from "@plateflow/shared";
 import { Prisma } from "../../generated/prisma/client.js";
 import { prisma } from "../../lib/prisma.js";
+import { deleteImage, replaceImage } from "../../lib/image-storage.js";
 import AppError from "../../utils/AppError.js";
 import { HTTP_STATUS } from "../../constants/http.js";
 
@@ -34,6 +35,11 @@ const orderedItemError = () =>
   );
 
 const withCategoryName = { category: { select: { name: true } } } as const;
+
+// A menu card is read on a phone, so 1200px covers it at 3x density without
+// sending pixels no screen will show.
+const IMAGE_MAX_EDGE_PX = 1200;
+const IMAGE_FOLDER = "plateflow/menu-items";
 
 type ItemRow = Prisma.MenuItemGetPayload<{ include: typeof withCategoryName }>;
 
@@ -121,10 +127,58 @@ class MenuItemService {
     return toMenuItem(updated);
   }
 
+  async setImage(id: string, file: Buffer): Promise<MenuItem> {
+    // Read before uploading, so a wrong id does not cost a stored image.
+    const existing = await this.assertExists(id);
+
+    const updated = await replaceImage({
+      target: {
+        folder: IMAGE_FOLDER,
+        name: id,
+        maxEdgePx: IMAGE_MAX_EDGE_PX,
+      },
+      file,
+      previousPublicId: existing.imagePublicId,
+      save: (image) =>
+        prisma.menuItem.update({
+          where: { id },
+          data: { imageUrl: image.url, imagePublicId: image.publicId },
+          include: withCategoryName,
+        }),
+    });
+
+    return toMenuItem(updated);
+  }
+
+  /** Removes the item's photo, if it has one. */
+  async clearImage(id: string): Promise<MenuItem> {
+    const existing = await this.assertExists(id);
+
+    // Written unconditionally: clearing an image that is already absent is the
+    // outcome the caller asked for, so it answers with the item rather than 404.
+    // The delete below removes the public id read before this write, so a replace
+    // that lands in between is the accepted race setImage documents.
+    const updated = await prisma.menuItem.update({
+      where: { id },
+      data: { imageUrl: null, imagePublicId: null },
+      include: withCategoryName,
+    });
+
+    if (existing.imagePublicId) {
+      await deleteImage(existing.imagePublicId);
+    }
+
+    return toMenuItem(updated);
+  }
+
   async remove(id: string): Promise<void> {
     const item = await prisma.menuItem.findUnique({
       where: { id },
-      select: { id: true, _count: { select: { orderItems: true } } },
+      select: {
+        id: true,
+        imagePublicId: true,
+        _count: { select: { orderItems: true } },
+      },
     });
 
     if (!item) {
@@ -141,17 +195,32 @@ class MenuItemService {
       () => prisma.menuItem.delete({ where: { id } }),
       orderedItemError
     );
+
+    // After the row, never before: a failed delete must not remove the photo
+    // the item still points at.
+    // The id is the one read before the delete, so a replace that lands in
+    // between is the accepted race setImage documents; the delete's own
+    // returning clause holds what the row actually had.
+    if (item.imagePublicId) {
+      await deleteImage(item.imagePublicId);
+    }
   }
 
-  private async assertExists(id: string): Promise<void> {
+  // The public id comes back with the check, so the image routes need no
+  // second read of the row.
+  private async assertExists(
+    id: string
+  ): Promise<{ imagePublicId: string | null }> {
     const existing = await prisma.menuItem.findUnique({
       where: { id },
-      select: { id: true },
+      select: { id: true, imagePublicId: true },
     });
 
     if (!existing) {
       throw notFoundError();
     }
+
+    return existing;
   }
 
   private async assertCategoryExists(categoryId: string): Promise<void> {

@@ -6,13 +6,16 @@ import {
   updateMenuItemSchema,
 } from "@plateflow/shared";
 import validate from "../../middlewares/validate.middleware.js";
+import { menuItemImageUpload } from "../../middlewares/upload.middleware.js";
 import { authenticate, requireRole } from "../auth/auth.middleware.js";
 import { Role } from "../../generated/prisma/enums.js";
 import {
   createMenuItem,
   deleteMenuItem,
   listMenuItems,
+  removeMenuItemImage,
   updateMenuItem,
+  updateMenuItemImage,
 } from "./menu-item.controller.js";
 
 const router = Router();
@@ -48,6 +51,27 @@ router.delete(
   requireRole(Role.OWNER, Role.MANAGER),
   validate(menuItemIdSchema),
   deleteMenuItem
+);
+
+// An item's photo is a subresource rather than a field on PATCH: the body is
+// multipart, and PUT says what happens — an item has one photo and sending
+// another replaces it. Deleting the item takes its photo with it, so the DELETE
+// below is only for "this item has no photo now".
+router.put(
+  "/items/:id/image",
+  authenticate,
+  requireRole(Role.OWNER, Role.MANAGER),
+  menuItemImageUpload,
+  validate(menuItemIdSchema),
+  updateMenuItemImage
+);
+
+router.delete(
+  "/items/:id/image",
+  authenticate,
+  requireRole(Role.OWNER, Role.MANAGER),
+  validate(menuItemIdSchema),
+  removeMenuItemImage
 );
 
 export default router;
