@@ -36,14 +36,23 @@ export async function apiRequest<T>(
 ): Promise<T> {
   const { body, headers, credentials, ...rest } = options
 
+  // FormData carries its own multipart boundary, so it is sent as-is and the
+  // browser sets Content-Type. Everything else is JSON.
+  const isFormData = body instanceof FormData
+  const hasBody = body !== undefined
+
   const response = await fetch(`${API_BASE}${path}`, {
     credentials: credentials ?? "same-origin",
     ...rest,
     headers: {
-      ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+      ...(hasBody && !isFormData ? { "Content-Type": "application/json" } : {}),
       ...headers,
     },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    body: hasBody
+      ? isFormData
+        ? (body as FormData)
+        : JSON.stringify(body)
+      : undefined,
   })
 
   // Handle 204 No Content or empty successful responses

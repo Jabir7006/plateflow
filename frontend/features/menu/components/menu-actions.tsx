@@ -1,6 +1,7 @@
 "use client"
 
 import { useCanManageMenu } from "../hooks/use-can-manage-menu"
+import { AddItemButton } from "./add-item-button"
 import { ManageCategoriesButton } from "./manage-categories-button"
 
 // The interactive island for the page header. Only users who may manage the
@@ -11,5 +12,10 @@ export function MenuActions() {
 
   if (!canManage) return null
 
-  return <ManageCategoriesButton />
+  return (
+    <>
+      <ManageCategoriesButton />
+      <AddItemButton />
+    </>
+  )
 }

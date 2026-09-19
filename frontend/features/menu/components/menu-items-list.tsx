@@ -4,13 +4,14 @@ import { useMemo } from "react"
 import { UtensilsCrossed } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Skeleton } from "@/components/ui/skeleton"
 import { getErrorMessage } from "@/lib/api-error"
 import { useMenuItems } from "../hooks/use-menu-items"
 import { useMenuViewMode } from "../hooks/use-menu-view-mode"
+import { useCanManageMenu } from "../hooks/use-can-manage-menu"
 import { groupByCategory, type MenuItemGroup } from "../group-items"
 import { MenuItemCard } from "./menu-item-card"
 import { MenuItemRow } from "./menu-item-row"
+import { MenuItemsSkeleton } from "./menu-items-skeleton"
 import { MenuViewToggle } from "./menu-view-toggle"
 
 const gridClassName = "grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
@@ -30,6 +31,7 @@ function CategoryHeading({ group }: { group: MenuItemGroup }) {
 
 export function MenuItemsList() {
   const { mode } = useMenuViewMode()
+  const canManage = useCanManageMenu()
   const { data, isPending, isError, error, refetch, isFetching } =
     useMenuItems()
 
@@ -43,38 +45,7 @@ export function MenuItemsList() {
         <div className="flex justify-end">
           <MenuViewToggle />
         </div>
-
-        <div className="space-y-8" role="status" aria-busy="true">
-          <span className="sr-only">Loading menu…</span>
-          {Array.from({ length: 2 }).map((_, section) => (
-            <div key={section}>
-              <Skeleton className="mb-3 h-5 w-32" />
-              {mode === "grid" ? (
-                <div className={gridClassName}>
-                  {Array.from({ length: 3 }).map((_, card) => (
-                    <Skeleton key={card} className="h-56 rounded-xl" />
-                  ))}
-                </div>
-              ) : (
-                <div className="divide-y rounded-xl border">
-                  {Array.from({ length: 3 }).map((_, row) => (
-                    <div
-                      key={row}
-                      className="flex items-center gap-3 px-3 py-3"
-                    >
-                      <Skeleton className="size-11 shrink-0 rounded-md" />
-                      <div className="flex-1 space-y-1.5">
-                        <Skeleton className="h-4 w-40" />
-                        <Skeleton className="h-3 w-16" />
-                      </div>
-                      <Skeleton className="h-4 w-20" />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+        <MenuItemsSkeleton mode={mode} />
       </div>
     )
   }
@@ -129,13 +100,21 @@ export function MenuItemsList() {
             {mode === "grid" ? (
               <div className={gridClassName}>
                 {group.items.map((item) => (
-                  <MenuItemCard key={item.id} item={item} />
+                  <MenuItemCard
+                    key={item.id}
+                    item={item}
+                    canManage={canManage}
+                  />
                 ))}
               </div>
             ) : (
               <div className="divide-y rounded-xl border">
                 {group.items.map((item) => (
-                  <MenuItemRow key={item.id} item={item} />
+                  <MenuItemRow
+                    key={item.id}
+                    item={item}
+                    canManage={canManage}
+                  />
                 ))}
               </div>
             )}
