@@ -34,3 +34,11 @@ export function deleteTable(id: string): Promise<void> {
     method: "DELETE",
   })
 }
+
+// Rotates the table's QR token. The old printed code stops working, so the UI
+// gates this behind a deliberate confirm.
+export function regenerateTableQr(id: string): Promise<Table> {
+  return apiRequest<Table>(`/tables/${encodeURIComponent(id)}/regenerate-qr`, {
+    method: "POST",
+  })
+}
