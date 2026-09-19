@@ -2,6 +2,8 @@ export * from "./schemas/auth.schema.js";
 export * from "./types/auth.types.js";
 export * from "./schemas/menu.schema.js";
 export * from "./types/menu.types.js";
+export * from "./schemas/table.schema.js";
+export * from "./types/table.types.js";
 export type {
   LoginSchema,
   InviteSchema,
@@ -25,3 +27,9 @@ export type {
   ListMenuItemsSchema,
 } from "./schemas/menu.schema.js";
 export type { MenuCategory, MenuItem } from "./types/menu.types.js";
+export type {
+  CreateTableSchema,
+  UpdateTableSchema,
+  TableIdSchema,
+} from "./schemas/table.schema.js";
+export type { Table } from "./types/table.types.js";
