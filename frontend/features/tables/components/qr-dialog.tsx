@@ -21,8 +21,11 @@ interface QrDialogProps {
   table: Table
 }
 
-// Level M balances scannability against density; a table sticker is printed
-// large and scanned close, so it needs no extra error correction.
+// Native canvas resolution: downloads and print always export at this size.
+// The on-screen preview is capped below (max-w-[296px] = size + the wrapper's
+// p-5 padding) and shrinks on narrow viewports. Level M balances scannability
+// against density; a table sticker is printed large and scanned close, so it
+// needs no extra error correction.
 const QR_SIZE = 256
 
 // Shows a table's QR so staff can download or print it. The value is derived
@@ -65,16 +68,18 @@ export function QrDialog({ open, onOpenChange, table }: QrDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="gap-5 p-6 sm:max-w-sm">
-        <DialogHeader>
+      <DialogContent className="grid-cols-[minmax(0,1fr)] gap-6 p-6 sm:max-w-sm">
+        <DialogHeader className="pr-8">
           <DialogTitle>Table {table.number} QR code</DialogTitle>
           <DialogDescription>
-            Diners scan this to open the table&apos;s menu and order.
+            Diners scan this to open the menu and order at this table.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col items-center gap-3">
-          <div className="rounded-xl border bg-white p-4">
+        {/* min-w-0: the grid item must be allowed to shrink below the URL's
+            nowrap min-content, or the whole track (and dialog) overflows. */}
+        <div className="flex min-w-0 flex-col items-center gap-4">
+          <div className="w-full max-w-[296px] rounded-2xl border bg-white p-5 shadow-sm">
             <QRCodeCanvas
               ref={canvasRef}
               value={url}
@@ -82,14 +87,21 @@ export function QrDialog({ open, onOpenChange, table }: QrDialogProps) {
               level="M"
               marginSize={2}
               title={`QR code for table ${table.number}`}
+              // Overrides the library's inline width/height (it is spread
+              // last) so the preview scales with its container, while the
+              // canvas backing store stays at QR_SIZE for crisp downloads.
+              style={{ width: "100%", height: "auto" }}
             />
           </div>
-          <p className="max-w-full truncate text-xs text-muted-foreground" title={url}>
+          <p
+            className="max-w-full truncate rounded-md bg-muted px-2.5 py-1 font-mono text-xs text-muted-foreground"
+            title={url}
+          >
             {url}
           </p>
         </div>
 
-        <DialogFooter className="flex-row gap-2 border-0 bg-transparent">
+        <DialogFooter className="m-0 flex-row gap-2 border-0 bg-transparent p-0">
           <Button
             type="button"
             variant="outline"
@@ -99,11 +111,7 @@ export function QrDialog({ open, onOpenChange, table }: QrDialogProps) {
             <Download />
             Download
           </Button>
-          <Button
-            type="button"
-            className="h-10 flex-1"
-            onClick={handlePrint}
-          >
+          <Button type="button" className="h-10 flex-1" onClick={handlePrint}>
             <Printer />
             Print
           </Button>
