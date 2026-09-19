@@ -70,6 +70,24 @@ class TableService {
     return toTable(updated);
   }
 
+  // Rotate the QR token. Used when a printed code is compromised: the new token
+  // makes every existing sticker for this table dead, so it is a deliberate,
+  // confirmed action on the client. A physically damaged (but uncompromised)
+  // sticker should be reprinted from the same token instead, not regenerated.
+  async regenerateQr(id: string): Promise<Table> {
+    await this.assertExists(id);
+
+    const updated = await this.runUnique(() =>
+      prisma.table.update({
+        where: { id },
+        data: { qrCode: randomId() },
+        include: withOrderCount,
+      })
+    );
+
+    return toTable(updated);
+  }
+
   async remove(id: string): Promise<void> {
     const table = await prisma.table.findUnique({
       where: { id },

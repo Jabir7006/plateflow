@@ -32,3 +32,9 @@ export const deleteTable = catchAsync(async (req, res) => {
   await tableService.remove(id);
   sendResponse(res, HTTP_STATUS.SUCCESS, null, "Table deleted");
 });
+
+export const regenerateTableQr = catchAsync(async (req, res) => {
+  const { id } = req.params as TableIdSchema["params"];
+  const table = await tableService.regenerateQr(id);
+  sendResponse(res, HTTP_STATUS.SUCCESS, table, "QR code regenerated");
+});

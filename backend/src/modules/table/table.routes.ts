@@ -11,6 +11,7 @@ import {
   createTable,
   deleteTable,
   listTables,
+  regenerateTableQr,
   updateTable,
 } from "./table.controller.js";
 
@@ -28,5 +29,9 @@ router.post("/", validate(createTableSchema), createTable);
 router.patch("/:id", validate(updateTableSchema), updateTable);
 
 router.delete("/:id", validate(tableIdSchema), deleteTable);
+
+// Rotate the QR token (kills existing printed stickers for this table). Same id
+// params as the others, so it reuses tableIdSchema.
+router.post("/:id/regenerate-qr", validate(tableIdSchema), regenerateTableQr);
 
 export default router;
