@@ -14,6 +14,7 @@ export interface NavItem {
 }
 
 // Single source for the desktop sidebar and the mobile bottom bar so the two
+// cannot drift apart.
 
 export const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutGrid },

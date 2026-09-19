@@ -32,6 +32,7 @@ export function AppSidebar() {
     const isActive = pathname === item.href
     const link = (
       <Link
+        key={item.href}
         href={item.href}
         aria-current={isActive ? "page" : undefined}
         className={cn(
@@ -50,8 +51,10 @@ export function AppSidebar() {
     // Icon-only rows need the label on hover; expanded rows show it inline.
     if (!collapsed) return link
 
+    // Keys live on the element each branch returns, since React reads the key
+    // from the mapped element itself.
     return (
-      <Tooltip>
+      <Tooltip key={item.href}>
         <TooltipTrigger render={link} />
         <TooltipContent side="right">{item.label}</TooltipContent>
       </Tooltip>
