@@ -7,6 +7,7 @@ import {
   InvalidToken,
   EmptyMenu,
 } from "@/features/diner/components/menu-states"
+import { MenuThemeScript } from "@/features/diner/components/menu-theme-script"
 
 export const metadata: Metadata = {
   title: "Menu — PlateFlow",
@@ -32,6 +33,7 @@ export default async function MenuPage({ params }: MenuPageProps) {
   if (!menu) {
     return (
       <div className={shell}>
+        <MenuThemeScript />
         <InvalidToken />
       </div>
     )
@@ -41,6 +43,7 @@ export default async function MenuPage({ params }: MenuPageProps) {
 
   return (
     <div className={shell}>
+      <MenuThemeScript />
       {groups.length === 0 ? (
         <EmptyMenu />
       ) : (

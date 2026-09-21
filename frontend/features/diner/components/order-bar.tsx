@@ -49,7 +49,7 @@ export function OrderBar({ itemCount, total, onOpen }: OrderBarProps) {
                   ? undefined
                   : { duration: 1.8, repeat: Infinity, ease: "easeInOut" }
               }
-              className="mx-auto flex items-center gap-1 text-muted-foreground"
+              className="flex justify-center"
             >
               <span className="h-1 w-8 rounded-full bg-muted-foreground/30" />
             </motion.span>
