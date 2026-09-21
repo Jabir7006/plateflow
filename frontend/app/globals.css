@@ -155,7 +155,34 @@
     --brand-foreground: oklch(0.2 0.02 50);
 }
 
-/* Warm cream light theme — same amber brand, light warm-neutral surfaces. */
+/*
+ * Warm cream light theme — same amber brand, light warm-neutral surfaces.
+ *
+ * Applied in two cases, both listed here so the values stay identical:
+ *  1. The phone prefers light AND the diner hasn't pinned a choice
+ *     (`:not(.menu-dark)`) — handled purely in CSS so the very first paint is
+ *     already correct with no script and no flash.
+ *  2. The diner explicitly picked light (`.menu-light`, set by useMenuTheme
+ *     after hydration) — always wins over the system default above.
+ * Only a diner who pins the OPPOSITE of their system setting sees a brief
+ * flash on first load; there's no way to avoid that without a blocking script,
+ * and a script rendered by a React component can't run on the client anyway.
+ */
+@media (prefers-color-scheme: light) {
+    .menu-page:not(.menu-dark) {
+        color-scheme: light;
+        --background: oklch(0.98 0.012 80);
+        --foreground: oklch(0.27 0.02 50);
+        --card: oklch(1 0.004 85);
+        --card-foreground: oklch(0.27 0.02 50);
+        --muted: oklch(0.95 0.014 75);
+        --muted-foreground: oklch(0.52 0.03 60);
+        --border: oklch(0.3 0.02 50 / 12%);
+        --brand: oklch(0.62 0.15 58);
+        --brand-foreground: oklch(0.99 0.01 85);
+    }
+}
+
 .menu-page.menu-light {
     color-scheme: light;
     --background: oklch(0.98 0.012 80);

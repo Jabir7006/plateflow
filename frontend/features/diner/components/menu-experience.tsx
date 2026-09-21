@@ -39,13 +39,19 @@ export function MenuExperience({ tableNumber, groups }: MenuExperienceProps) {
     [groups, activeCategoryId]
   )
 
-  // Toggle the light theme on the `.menu-page` wrapper (rendered by the server
+  // Pin the resolved theme on the `.menu-page` wrapper (rendered by the server
   // in page.tsx) so the whole subtree — including the fixed order bar and the
-  // portal-free cart sheet — re-themes together. We walk up to it rather than
-  // owning the class here because the wrapper's background sits above this island.
+  // portal-free cart sheet — re-themes together. We set an EXPLICIT class so it
+  // overrides the `prefers-color-scheme` default in globals.css in both
+  // directions: a light-phone diner who wants dark gets `.menu-dark`, and vice
+  // versa. Until this runs (first paint) CSS already shows the system default,
+  // so the common case never flashes. We walk up to the wrapper rather than
+  // owning the class here because its background sits above this island.
   useEffect(() => {
     const page = rootRef.current?.closest(".menu-page")
-    page?.classList.toggle("menu-light", theme === "light")
+    if (!page) return
+    page.classList.toggle("menu-light", theme === "light")
+    page.classList.toggle("menu-dark", theme === "dark")
   }, [theme])
 
   return (
