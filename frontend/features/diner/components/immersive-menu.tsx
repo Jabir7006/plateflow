@@ -7,7 +7,7 @@ import useEmblaCarousel from "embla-carousel-react"
 import type { UseEmblaCarouselType } from "embla-carousel-react"
 import type { MenuItem } from "@plateflow/shared"
 import { cn } from "@/lib/utils"
-import { formatPrice } from "@/features/menu/format-price"
+import { formatPriceNumber } from "@/features/menu/format-price"
 import type { Cart } from "../hooks/use-cart"
 import {
   DEFAULT_SIZE,
@@ -145,7 +145,7 @@ export function ImmersiveMenu({
               // The stacking sibling. transform/opacity/zIndex are set
               // imperatively in applyTween; origin-bottom so the tilt pivots
               // from the base and the deck fans out like the reference.
-              className="min-w-0 flex-[0_0_72%] origin-bottom px-2 [will-change:transform,opacity] sm:flex-[0_0_60%]"
+              className="min-w-0 flex-[0_0_72%] origin-bottom px-2 will-change-[transform,opacity] sm:flex-[0_0_60%]"
             >
               {/* Square card, sized by its slide's WIDTH (aspect-square w-full)
                   so it's always exactly the slide width and can never spill into
@@ -154,7 +154,7 @@ export function ImmersiveMenu({
                   phone overflow-hidden crops the photo a touch, top and bottom
                   evenly, rather than clipping the card. */}
               <div className="aspect-square w-full">
-                <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-[2rem] bg-gradient-to-br from-brand/30 via-card to-background shadow-2xl">
+                <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-[2rem] bg-linear-to-br from-brand/30 via-card to-background shadow-2xl">
                   {item.imageUrl ? (
                     <Image
                       src={item.imageUrl}
@@ -172,6 +172,16 @@ export function ImmersiveMenu({
                       Unavailable
                     </span>
                   ) : null}
+
+                  {/* Promo-style price tag badge */}
+                  <div className="absolute right-3.5 bottom-3.5 z-10 flex -rotate-2 items-baseline gap-1 rounded-2xl bg-brand px-3.5 py-1.5 text-brand-foreground shadow-xl ring-2 shadow-black/40 ring-background/60 transition-transform duration-200 select-none hover:scale-105 hover:rotate-0">
+                    <span className="font-display text-sm leading-none font-bold opacity-90 sm:text-base">
+                      ৳
+                    </span>
+                    <span className="font-display text-2xl leading-none font-black tracking-tight tabular-nums sm:text-3xl">
+                      {formatPriceNumber(item.price)}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -195,10 +205,6 @@ export function ImmersiveMenu({
               {focused.description ?? ""}
             </p>
           </div>
-
-          <p className="mt-2 font-display text-3xl font-bold text-brand tabular-nums">
-            {formatPrice(focused.price)}
-          </p>
 
           {/* Dots */}
           {items.length > 1 ? (
