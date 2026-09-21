@@ -9,3 +9,7 @@ const priceFormatter = new Intl.NumberFormat("en-US", {
 export function formatPrice(value: number): string {
   return `৳${priceFormatter.format(value)}`
 }
+
+export function formatPriceNumber(value: number): string {
+  return priceFormatter.format(value)
+}

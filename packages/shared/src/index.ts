@@ -4,6 +4,7 @@ export * from "./schemas/menu.schema.js";
 export * from "./types/menu.types.js";
 export * from "./schemas/table.schema.js";
 export * from "./types/table.types.js";
+export * from "./types/diner.types.js";
 export type {
   LoginSchema,
   InviteSchema,
@@ -33,3 +34,4 @@ export type {
   TableIdSchema,
 } from "./schemas/table.schema.js";
 export type { Table } from "./types/table.types.js";
+export type { TableMenu } from "./types/diner.types.js";
