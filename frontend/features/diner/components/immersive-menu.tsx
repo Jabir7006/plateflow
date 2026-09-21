@@ -173,8 +173,13 @@ export function ImmersiveMenu({
                     </span>
                   ) : null}
 
+                  {/* Bottom scrim: darkens the base of the photo so the price
+                      pill stays legible over pale or busy dishes (salads, drinks),
+                      not just this dark burger shot. */}
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 z-0 h-2/5 bg-linear-to-t from-black/60 via-black/20 to-transparent" />
+
                   {/* Promo-style price tag badge */}
-                  <div className="absolute right-3.5 bottom-3.5 z-10 flex -rotate-2 items-baseline gap-1 rounded-2xl bg-brand px-3.5 py-1.5 text-brand-foreground shadow-xl ring-2 shadow-black/40 ring-background/60 transition-transform duration-200 select-none hover:scale-105 hover:rotate-0">
+                  <div className="absolute right-3.5 bottom-3.5 z-10 flex -rotate-2 items-baseline gap-1 rounded-2xl bg-brand px-3.5 py-1.5 text-brand-foreground shadow-xl ring-2 shadow-black/50 ring-background/70 transition-transform duration-200 select-none hover:scale-105 hover:rotate-0">
                     <span className="font-display text-sm leading-none font-bold opacity-90 sm:text-base">
                       ৳
                     </span>
