@@ -7,6 +7,9 @@
 @theme inline {
     --font-heading: var(--font-sans);
     --font-sans: var(--font-sans);
+    --font-display: var(--font-display);
+    --color-brand: var(--brand);
+    --color-brand-foreground: var(--brand-foreground);
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -126,4 +129,43 @@
   html {
     @apply font-sans;
     }
+}
+
+/*
+ * The customer menu (`/t/<token>`) is its own experience with a warm "espresso +
+ * amber" surface, independent of the staff app's light/dark toggle. It has its
+ * OWN theme (dark by default, light when `.menu-light` is added to `.menu-page`
+ * — see useMenuTheme), so this is split into a base + a `.menu-light` override
+ * rather than reusing the staff `.dark` class. Wrapping the subtree in
+ * `.menu-page` remaps the shared tokens so the same `bg-background`/
+ * `text-muted-foreground` utilities render warm inside the menu and leave the
+ * staff dashboard untouched.
+ */
+.menu-page {
+    color-scheme: dark;
+    --background: oklch(0.17 0.014 50);
+    --foreground: oklch(0.96 0.012 75);
+    --card: oklch(0.22 0.018 52);
+    --card-foreground: oklch(0.96 0.012 75);
+    --muted: oklch(0.27 0.018 52);
+    --muted-foreground: oklch(0.72 0.025 68);
+    --border: oklch(1 0 0 / 10%);
+    /* Warm amber accent — the "pick your brew" highlight from the reference. */
+    --brand: oklch(0.76 0.14 62);
+    --brand-foreground: oklch(0.2 0.02 50);
+}
+
+/* Warm cream light theme — same amber brand, light warm-neutral surfaces. */
+.menu-page.menu-light {
+    color-scheme: light;
+    --background: oklch(0.98 0.012 80);
+    --foreground: oklch(0.27 0.02 50);
+    --card: oklch(1 0.004 85);
+    --card-foreground: oklch(0.27 0.02 50);
+    --muted: oklch(0.95 0.014 75);
+    --muted-foreground: oklch(0.52 0.03 60);
+    --border: oklch(0.3 0.02 50 / 12%);
+    /* Deepen the amber a touch so it reads as text/buttons on a light surface. */
+    --brand: oklch(0.62 0.15 58);
+    --brand-foreground: oklch(0.99 0.01 85);
 }

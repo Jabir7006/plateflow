@@ -12,7 +12,9 @@ import { HTTP_STATUS } from "../../constants/http.js";
 
 type CreateInput = CreateMenuItemSchema["body"];
 type UpdateInput = UpdateMenuItemSchema["body"];
-type ListInput = ListMenuItemsSchema["query"];
+// `availableOnly` is not a query param staff send — it's how the public diner
+// menu asks for only what it may show. Kept off the wire schema on purpose.
+type ListInput = ListMenuItemsSchema["query"] & { availableOnly?: boolean };
 
 const notFoundError = () =>
   new AppError("Menu item not found", HTTP_STATUS.NOT_FOUND);
@@ -58,11 +60,17 @@ const toMenuItem = (item: ItemRow): MenuItem => ({
 });
 
 class MenuItemService {
-  // Unavailable items are included on purpose: staff have to see and flip them,
-  // and a customer menu is expected to filter on the flag it already carries.
-  async list({ categoryId }: ListInput = {}): Promise<MenuItem[]> {
+  // Unavailable items are included by default on purpose: staff have to see and
+  // flip them. The diner menu passes `availableOnly` to get just what it may
+  // show, so the availability rule lives here rather than being re-derived.
+  async list({ categoryId, availableOnly }: ListInput = {}): Promise<
+    MenuItem[]
+  > {
     const items = await prisma.menuItem.findMany({
-      where: categoryId ? { categoryId } : undefined,
+      where: {
+        ...(categoryId ? { categoryId } : {}),
+        ...(availableOnly ? { isAvailable: true } : {}),
+      },
       // Ordered by category so the list reads the way a menu does.
       orderBy: [{ category: { name: "asc" } }, { name: "asc" }],
       include: withCategoryName,

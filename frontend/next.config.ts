@@ -15,6 +15,17 @@ if (process.env.NODE_ENV === "production" && !process.env.BACKEND_URL) {
 const BACKEND_URL = process.env.BACKEND_URL || DEV_BACKEND_URL
 
 const nextConfig: NextConfig = {
+  images: {
+    // Menu photos are Cloudinary delivery URLs (f_auto,q_auto already baked in
+    // by the backend). Allow only our cloud so next/image can optimise them.
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "res.cloudinary.com",
+        pathname: "/dkzqijrkd/**",
+      },
+    ],
+  },
   async rewrites() {
     return [
       {
