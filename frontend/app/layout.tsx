@@ -38,6 +38,13 @@ export default function RootLayout({
         fontDisplay.variable
       )}
     >
+      <head>
+        {/* Landing-page reveals start hidden and an observer shows them after
+            mount; with JS off that never runs, so force them visible. */}
+        <noscript>
+          <style>{`.reveal{opacity:1!important;transform:none!important}`}</style>
+        </noscript>
+      </head>
       <body>
         <QueryProvider>
           <ThemeProvider>
