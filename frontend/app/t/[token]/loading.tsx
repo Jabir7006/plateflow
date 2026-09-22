@@ -16,7 +16,7 @@ export default function Loading() {
             </div>
             <div className="flex items-center gap-2">
               <div className="size-8 animate-pulse rounded-full bg-muted" />
-              <div className="h-9 w-[4.5rem] animate-pulse rounded-full bg-muted" />
+              <div className="h-9 w-18 animate-pulse rounded-full bg-muted" />
             </div>
           </div>
 

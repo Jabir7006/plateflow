@@ -31,7 +31,7 @@ export function CategoryNav({ categories, activeId, onSelect }: CategoryNavProps
 
   return (
     <nav aria-label="Menu categories">
-      <ul className="flex gap-2 overflow-x-auto px-4 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <ul className="flex gap-2 overflow-x-auto px-4 py-3 scrollbar-none [&::-webkit-scrollbar]:hidden">
         {categories.map((category) => {
           const isActive = category.id === activeId
           return (

@@ -86,7 +86,7 @@ export function CartSheet({ open, onClose, cart }: CartSheetProps) {
                             className="object-cover"
                           />
                         ) : (
-                          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-muted to-brand/15">
+                          <div className="flex h-full w-full items-center justify-center bg-linear-to-br from-muted to-brand/15">
                             <UtensilsCrossed className="size-5 text-brand/35" />
                           </div>
                         )}
