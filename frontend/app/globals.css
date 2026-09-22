@@ -53,6 +53,10 @@
 :root {
     --background: oklch(1 0 0);
     --foreground: oklch(0.141 0.005 285.823);
+    /* Warm amber accent, shared with the diner menu so the product reads as one
+       brand. The menu subtree overrides these; the staff app never used them. */
+    --brand: oklch(0.62 0.15 58);
+    --brand-foreground: oklch(0.99 0.01 85);
     --card: oklch(1 0 0);
     --card-foreground: oklch(0.141 0.005 285.823);
     --popover: oklch(1 0 0);
@@ -88,6 +92,8 @@
 .dark {
     --background: oklch(0.141 0.005 285.823);
     --foreground: oklch(0.985 0 0);
+    --brand: oklch(0.76 0.14 62);
+    --brand-foreground: oklch(0.2 0.02 50);
     --card: oklch(0.21 0.006 285.885);
     --card-foreground: oklch(0.985 0 0);
     --popover: oklch(0.21 0.006 285.885);
