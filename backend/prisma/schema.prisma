@@ -20,16 +20,30 @@ model User {
 }
 
 model MenuItem {
-  id            String       @id @default(cuid())
+  id            String         @id @default(cuid())
   name          String
-  price         Decimal      @db.Decimal(10, 2)
+  // Base price. Used when the item has no sizes; when it does, the chosen
+  // size's price is what the diner pays.
+  price         Decimal        @db.Decimal(10, 2)
   description   String?
   imagePublicId String?
   imageUrl      String?
-  isAvailable   Boolean      @default(true)
+  isAvailable   Boolean        @default(true)
   categoryId    String
-  category      MenuCategory @relation(fields: [categoryId], references: [id])
+  category      MenuCategory   @relation(fields: [categoryId], references: [id])
+  sizes         MenuItemSize[]
   orderItems    OrderItem[]
+}
+
+model MenuItemSize {
+  id         String   @id @default(cuid())
+  menuItemId String
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  label      String
+  price      Decimal  @db.Decimal(10, 2)
+  sortOrder  Int      @default(0)
+
+  @@index([menuItemId])
 }
 
 model Table {

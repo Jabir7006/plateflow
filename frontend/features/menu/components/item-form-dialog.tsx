@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { Controller, useForm } from "react-hook-form"
+import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form"
+import { Plus, Trash2 } from "lucide-react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { createMenuItemSchema } from "@plateflow/shared"
 import type { z } from "zod"
@@ -25,6 +26,7 @@ import {
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
+import { cn } from "@/lib/utils"
 import { getErrorMessage } from "@/lib/api-error"
 import { extractFieldErrors } from "@/lib/api-field-errors"
 import { ImageUploadError } from "../hooks/use-menu-item-mutations"
@@ -49,6 +51,16 @@ const FIELD_NAMES = ["name", "price", "description", "categoryId"] as const
 const fieldClassName =
   "h-10 border-border bg-background text-foreground placeholder:text-muted-foreground focus-visible:ring-ring"
 const footerClassName = "flex-row gap-2 border-0 bg-transparent"
+
+type SizeValue = { label: string; price: number }
+
+function sizesDiffer(current: SizeValue[], original: SizeValue[]): boolean {
+  if (current.length !== original.length) return true
+  return current.some(
+    (size, i) =>
+      size.label !== original[i].label || size.price !== original[i].price
+  )
+}
 
 interface ItemFormDialogProps {
   open: boolean
@@ -83,6 +95,7 @@ export function ItemFormDialog({
     price: item ? String(item.price) : "",
     description: item?.description ?? "",
     categoryId: item?.categoryId ?? defaultCategoryId ?? "",
+    sizes: item?.sizes.map((s) => ({ label: s.label, price: String(s.price) })) ?? [],
     isAvailable: item?.isAvailable ?? true,
   })
 
@@ -92,11 +105,25 @@ export function ItemFormDialog({
     handleSubmit,
     reset,
     setError,
+    setValue,
     formState: { errors, isDirty, dirtyFields },
   } = useForm<FormInput, unknown, FormOutput>({
     resolver: zodResolver(itemFormSchema),
     defaultValues: buildDefaults(),
   })
+
+  const { fields, append, remove } = useFieldArray({ control, name: "sizes" })
+  const hasSizes = fields.length > 0
+
+  // With sizes, the base price column isn't shown to staff but is still
+  // required, so keep it equal to the first size — it doubles as the "from"
+  // price. Watching just that one field avoids re-syncing on every keystroke.
+  const firstSizePrice = useWatch({ control, name: "sizes.0.price" })
+  useEffect(() => {
+    if (hasSizes && firstSizePrice !== undefined) {
+      setValue("price", firstSizePrice, { shouldValidate: false })
+    }
+  }, [hasSizes, firstSizePrice, setValue])
 
   // Seed on the open transition only, so a background refetch handing down a
   // new `item` object can't wipe an edit in progress.
@@ -150,6 +177,13 @@ export function ItemFormDialog({
       if (dirtyFields.description) input.description = values.description
       if (dirtyFields.categoryId) input.categoryId = values.categoryId
       if (dirtyFields.isAvailable) input.isAvailable = values.isAvailable
+      // Field-array dirty state is unreliable, so compare by value. When sizes
+      // change, keep the base price aligned with the first ("from") size too.
+      const nextSizes = values.sizes ?? []
+      if (sizesDiffer(nextSizes, item.sizes)) {
+        input.sizes = nextSizes
+        input.price = values.price
+      }
       update.mutate({ item, input, image }, { onSuccess, onError })
     } else {
       // On create there is no removal, only an optional file.
@@ -173,7 +207,7 @@ export function ItemFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="gap-5 p-6 sm:max-w-md">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] gap-5 overflow-y-auto p-6 sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit item" : "New item"}</DialogTitle>
           <DialogDescription className="sr-only">
@@ -207,27 +241,29 @@ export function ItemFormDialog({
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="item-price" className="text-sm font-normal">
-                Price
-              </Label>
-              <Input
-                id="item-price"
-                inputMode="decimal"
-                placeholder="250"
-                autoComplete="off"
-                aria-invalid={Boolean(errors.price)}
-                className={fieldClassName}
-                {...register("price")}
-              />
-              {errors.price ? (
-                <p className="text-sm text-destructive">
-                  {errors.price.message}
-                </p>
-              ) : null}
-            </div>
+            {!hasSizes ? (
+              <div className="space-y-2">
+                <Label htmlFor="item-price" className="text-sm font-normal">
+                  Price
+                </Label>
+                <Input
+                  id="item-price"
+                  inputMode="decimal"
+                  placeholder="250"
+                  autoComplete="off"
+                  aria-invalid={Boolean(errors.price)}
+                  className={fieldClassName}
+                  {...register("price")}
+                />
+                {errors.price ? (
+                  <p className="text-sm text-destructive">
+                    {errors.price.message}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
 
-            <div className="space-y-2">
+            <div className={cn("space-y-2", hasSizes && "col-span-2")}>
               <Label htmlFor="item-category" className="text-sm font-normal">
                 Category
               </Label>
@@ -270,6 +306,87 @@ export function ItemFormDialog({
                 </p>
               ) : null}
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <div>
+              <Label className="text-sm font-normal">
+                Sizes <span className="text-muted-foreground">(optional)</span>
+              </Label>
+              {hasSizes ? (
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Customers pick a size and pay its price.
+                </p>
+              ) : null}
+            </div>
+
+            {fields.map((field, index) => (
+              <div key={field.id} className="flex items-start gap-2">
+                <div className="flex-1 space-y-1">
+                  <Input
+                    aria-label={`Size ${index + 1} label`}
+                    placeholder="Small"
+                    autoComplete="off"
+                    aria-invalid={Boolean(errors.sizes?.[index]?.label)}
+                    className={fieldClassName}
+                    {...register(`sizes.${index}.label`)}
+                  />
+                  {errors.sizes?.[index]?.label ? (
+                    <p className="text-sm text-destructive">
+                      {errors.sizes[index]?.label?.message}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="w-28 space-y-1">
+                  <Input
+                    aria-label={`Size ${index + 1} price`}
+                    inputMode="decimal"
+                    placeholder="250"
+                    autoComplete="off"
+                    aria-invalid={Boolean(errors.sizes?.[index]?.price)}
+                    className={fieldClassName}
+                    {...register(`sizes.${index}.price`)}
+                  />
+                  {errors.sizes?.[index]?.price ? (
+                    <p className="text-sm text-destructive">
+                      {errors.sizes[index]?.price?.message}
+                    </p>
+                  ) : null}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-10 w-10 shrink-0"
+                  aria-label={`Remove size ${index + 1}`}
+                  onClick={() => remove(index)}
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </div>
+            ))}
+
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 w-full"
+              onClick={() => append({ label: "", price: "" })}
+            >
+              <Plus className="size-4" /> Add size
+            </Button>
+
+            {errors.sizes?.root ? (
+              <p className="text-sm text-destructive">
+                {errors.sizes.root.message}
+              </p>
+            ) : null}
+
+            {/* The base price input is hidden while sizes drive it, so surface
+                its (rare) validation error here rather than nowhere — unless the
+                first size already shows the same problem. */}
+            {hasSizes && errors.price && !errors.sizes?.[0]?.price ? (
+              <p className="text-sm text-destructive">{errors.price.message}</p>
+            ) : null}
           </div>
 
           <div className="space-y-2">

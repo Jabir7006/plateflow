@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import Image from "next/image"
 import { ChevronLeft, ChevronRight, UtensilsCrossed } from "lucide-react"
 import useEmblaCarousel from "embla-carousel-react"
@@ -9,16 +9,10 @@ import type { MenuItem } from "@plateflow/shared"
 import { cn } from "@/lib/utils"
 import { formatPriceNumber } from "@/features/menu/format-price"
 import type { Cart } from "../hooks/use-cart"
-import {
-  DEFAULT_SIZE,
-  categoryHasSizes,
-  type SizeOption,
-} from "../size-options"
 import { QuantityControl } from "./quantity-control"
 import { SizeSelector } from "./size-selector"
 
 interface ImmersiveMenuProps {
-  categoryName: string
   items: MenuItem[]
   cart: Cart
 }
@@ -41,23 +35,15 @@ type EmblaApi = NonNullable<UseEmblaCarouselType[1]>
 // with its neighbours fanned out behind it, then the focused dish's details.
 // The deck has a natural, viewport-relative height and the whole view scrolls if
 // a short phone can't fit everything — so nothing gets crushed on small screens.
-export function ImmersiveMenu({
-  categoryName,
-  items,
-  cart,
-}: ImmersiveMenuProps) {
+export function ImmersiveMenu({ items, cart }: ImmersiveMenuProps) {
   const [emblaRef, emblaApi] = useEmblaCarousel({
     align: "center",
     containScroll: false,
   })
   const slideRefs = useRef<(HTMLDivElement | null)[]>([])
   const [selectedIndex, setSelectedIndex] = useState(0)
-  const [size, setSize] = useState<SizeOption>(DEFAULT_SIZE)
-
-  const showSizes = useMemo(
-    () => categoryHasSizes(categoryName),
-    [categoryName]
-  )
+  // Remembers the chosen size per item id, so swiping away and back keeps it.
+  const [sizeByItem, setSizeByItem] = useState<Record<string, string>>({})
 
   // Fan each slide by its distance from centre, written straight to the DOM on
   // every scroll frame. Doing this imperatively (not via React state) means a
@@ -125,6 +111,22 @@ export function ImmersiveMenu({
   const atStart = selectedIndex === 0
   const atEnd = selectedIndex === items.length - 1
 
+  // The focused item's chosen size (default the first). Drives the price badge,
+  // the stepper and what gets added.
+  const focusedSizeId = focused
+    ? (sizeByItem[focused.id] ?? focused.sizes[0]?.id ?? "")
+    : ""
+  const focusedSize =
+    focused?.sizes.find((s) => s.id === focusedSizeId) ?? null
+
+  // Price shown on a card: the focused card follows its selected size; everyone
+  // else shows `item.price` — the single price when unsized, or the "from"
+  // (cheapest) size the server already resolved.
+  const cardPrice = (item: MenuItem) => {
+    if (item.id === focused?.id && focusedSize) return focusedSize.price
+    return item.price
+  }
+
   return (
     // Natural top-down flow: the deck sits at the card's own height and the
     // details follow below. Nothing constrains the deck's height, so the square
@@ -184,7 +186,7 @@ export function ImmersiveMenu({
                       ৳
                     </span>
                     <span className="font-display text-2xl leading-none font-black tracking-tight tabular-nums sm:text-3xl">
-                      {formatPriceNumber(item.price)}
+                      {formatPriceNumber(cardPrice(item))}
                     </span>
                   </div>
                 </div>
@@ -231,13 +233,19 @@ export function ImmersiveMenu({
             </div>
           ) : null}
 
-          {/* Size row — reserve the height even when a category has no sizes so
-              the action row below stays put across categories. */}
-          <div className="mt-5 flex h-12 items-center justify-center">
-            {showSizes ? (
-              <SizeSelector value={size} onChange={setSize} />
-            ) : null}
-          </div>
+          {/* Size row — only for items that have sizes, so an unsized item
+              doesn't leave a gap (and its Add button stays higher up). */}
+          {focused.sizes.length > 0 ? (
+            <div className="mt-5 flex items-center justify-center">
+              <SizeSelector
+                sizes={focused.sizes}
+                value={focusedSizeId}
+                onChange={(sizeId) =>
+                  setSizeByItem((prev) => ({ ...prev, [focused.id]: sizeId }))
+                }
+              />
+            </div>
+          ) : null}
 
           {/* Action row: prev / add / next, like the reference. */}
           <div className="mx-auto mt-5 flex max-w-sm items-center gap-3">
@@ -255,9 +263,9 @@ export function ImmersiveMenu({
               <QuantityControl
                 variant="solid"
                 label={focused.name}
-                quantity={cart.quantityOf(focused.id)}
-                onAdd={() => cart.add(focused)}
-                onRemove={() => cart.remove(focused.id)}
+                quantity={cart.quantityOf(focused.id, focusedSize?.id)}
+                onAdd={() => cart.add(focused, focusedSize)}
+                onRemove={() => cart.remove(focused.id, focusedSize?.id)}
               />
             </div>
 

@@ -54,6 +54,28 @@ const description = z
 
 const isAvailable = z.boolean("Availability must be true or false");
 
+const sizeLabel = z
+  .string("Size label is required")
+  .trim()
+  .min(1, "Size label is required")
+  .max(30, "Size label must be 30 characters or fewer");
+
+const MAX_SIZES = 8;
+
+// An item's sizes. Order in the array is the display order. An empty array (or
+// omitting the field) means the item is sold at its single base price; a
+// non-empty array means the diner picks a size and pays that size's price.
+const sizes = z
+  .array(z.object({ label: sizeLabel, price }))
+  .max(MAX_SIZES, `An item can have at most ${MAX_SIZES} sizes`)
+  .refine(
+    (list) => {
+      const labels = list.map((s) => s.label.toLowerCase());
+      return new Set(labels).size === labels.length;
+    },
+    { message: "Each size needs a different label" },
+  );
+
 export const createMenuCategorySchema = z.object({
   body: z.object({ name: categoryName }),
 });
@@ -73,6 +95,7 @@ export const createMenuItemSchema = z.object({
     price,
     description,
     categoryId,
+    sizes: sizes.optional(),
     // Optional on purpose: a new item is available unless the caller says
     // otherwise, matching the column default.
     isAvailable: isAvailable.optional(),
@@ -87,6 +110,7 @@ export const updateMenuItemSchema = z.object({
       price: price.optional(),
       description,
       categoryId: categoryId.optional(),
+      sizes: sizes.optional(),
       isAvailable: isAvailable.optional(),
     })
     // A PATCH that names no field is a client bug rather than a no-op, so it is

@@ -92,11 +92,7 @@ export function MenuExperience({ tableNumber, groups }: MenuExperienceProps) {
         >
           {activeGroup ? (
             mode === "immersive" ? (
-              <ImmersiveMenu
-                categoryName={activeGroup.categoryName}
-                items={activeGroup.items}
-                cart={cart}
-              />
+              <ImmersiveMenu items={activeGroup.items} cart={cart} />
             ) : (
               <SimpleMenu
                 categoryName={activeGroup.categoryName}
