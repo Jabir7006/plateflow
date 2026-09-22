@@ -5,6 +5,7 @@ import Image from "next/image"
 import { ChevronLeft, ChevronRight, UtensilsCrossed } from "lucide-react"
 import useEmblaCarousel from "embla-carousel-react"
 import type { UseEmblaCarouselType } from "embla-carousel-react"
+import { AnimatePresence, motion } from "motion/react"
 import type { MenuItem } from "@plateflow/shared"
 import { cn } from "@/lib/utils"
 import { formatPriceNumber } from "@/features/menu/format-price"
@@ -180,13 +181,29 @@ export function ImmersiveMenu({ items, cart }: ImmersiveMenuProps) {
                       not just this dark burger shot. */}
                   <div className="pointer-events-none absolute inset-x-0 bottom-0 z-0 h-2/5 bg-linear-to-t from-black/60 via-black/20 to-transparent" />
 
-                  {/* Promo-style price tag badge */}
+                  {/* Promo-style price tag badge. The number slot-rolls to its
+                      new value when the size (and so the price) changes, so the
+                      link between picking a size and paying more is obvious. */}
                   <div className="absolute right-3.5 bottom-3.5 z-10 flex -rotate-2 items-baseline gap-1 rounded-2xl bg-brand px-3.5 py-1.5 text-brand-foreground shadow-xl ring-2 shadow-black/50 ring-background/70 transition-transform duration-200 select-none hover:scale-105 hover:rotate-0">
                     <span className="font-display text-sm leading-none font-bold opacity-90 sm:text-base">
                       ৳
                     </span>
-                    <span className="font-display text-2xl leading-none font-black tracking-tight tabular-nums sm:text-3xl">
-                      {formatPriceNumber(cardPrice(item))}
+                    <span className="relative inline-flex overflow-hidden font-display text-2xl leading-none font-black tracking-tight tabular-nums sm:text-3xl">
+                      <AnimatePresence mode="popLayout" initial={false}>
+                        <motion.span
+                          key={cardPrice(item)}
+                          initial={{ y: "-70%", opacity: 0 }}
+                          animate={{ y: "0%", opacity: 1 }}
+                          exit={{ y: "70%", opacity: 0 }}
+                          transition={{
+                            type: "spring",
+                            stiffness: 500,
+                            damping: 32,
+                          }}
+                        >
+                          {formatPriceNumber(cardPrice(item))}
+                        </motion.span>
+                      </AnimatePresence>
                     </span>
                   </div>
                 </div>

@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Image from "next/image"
 import { UtensilsCrossed } from "lucide-react"
-import { motion } from "motion/react"
+import { AnimatePresence, motion } from "motion/react"
 import type { MenuItem } from "@plateflow/shared"
 import { cn } from "@/lib/utils"
 import { formatPrice } from "@/features/menu/format-price"
@@ -30,7 +30,7 @@ function Thumb({ item }: { item: MenuItem }) {
           className="object-cover"
         />
       ) : (
-        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-muted to-brand/15">
+        <div className="flex h-full w-full items-center justify-center bg-linear-to-br from-muted to-brand/15">
           <UtensilsCrossed className="size-6 text-brand/35" />
         </div>
       )}
@@ -52,8 +52,7 @@ export function SimpleMenu({ categoryName, items, cart }: SimpleMenuProps) {
 
       <ul className="divide-y divide-border">
         {items.map((item, index) => {
-          const selectedId =
-            sizeByItem[item.id] ?? item.sizes[0]?.id ?? ""
+          const selectedId = sizeByItem[item.id] ?? item.sizes[0]?.id ?? ""
           const selectedSize =
             item.sizes.find((s) => s.id === selectedId) ?? null
           const price = selectedSize ? selectedSize.price : item.price
@@ -63,7 +62,10 @@ export function SimpleMenu({ categoryName, items, cart }: SimpleMenuProps) {
               key={item.id}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.2, delay: Math.min(index * 0.04, 0.24) }}
+              transition={{
+                duration: 0.2,
+                delay: Math.min(index * 0.04, 0.24),
+              }}
               className="py-4"
             >
               <div className="flex items-center gap-4">
@@ -78,9 +80,26 @@ export function SimpleMenu({ categoryName, items, cart }: SimpleMenuProps) {
                       {item.description}
                     </p>
                   ) : null}
-                  <p className="mt-1 font-medium text-brand tabular-nums">
-                    {formatPrice(price)}
-                  </p>
+                  {/* Price rolls to its new value when the size changes, so
+                      the size/price link is visible without a badge here. */}
+                  <div className="mt-1 flex h-6 items-center overflow-hidden">
+                    <AnimatePresence mode="popLayout" initial={false}>
+                      <motion.span
+                        key={price}
+                        initial={{ y: "-100%", opacity: 0 }}
+                        animate={{ y: "0%", opacity: 1 }}
+                        exit={{ y: "100%", opacity: 0 }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 500,
+                          damping: 32,
+                        }}
+                        className="font-medium text-brand tabular-nums"
+                      >
+                        {formatPrice(price)}
+                      </motion.span>
+                    </AnimatePresence>
+                  </div>
                 </div>
 
                 <div className="shrink-0">
