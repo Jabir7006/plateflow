@@ -54,11 +54,11 @@ export function OrderBar({ itemCount, total, onOpen }: OrderBarProps) {
               <span className="h-1 w-8 rounded-full bg-muted-foreground/30" />
             </motion.span>
 
-            <span className="flex items-center justify-between gap-4 pl-2">
+            <span className="flex items-center justify-between gap-3 pl-2">
               <span className="flex min-w-0 items-center gap-2">
                 <ChevronUp className="size-4 shrink-0 text-muted-foreground" />
                 <span className="min-w-0">
-                  <span className="block text-xs text-muted-foreground">
+                  <span className="block truncate text-xs text-muted-foreground">
                     {itemCount} {itemCount === 1 ? "item" : "items"} · View order
                   </span>
                   <span className="block font-display text-lg font-semibold text-foreground tabular-nums">
@@ -67,21 +67,21 @@ export function OrderBar({ itemCount, total, onOpen }: OrderBarProps) {
                 </span>
               </span>
 
-            <motion.span
-              // The pulse invites a tap; it's a span (the whole bar is the
-              // button) so it stays a single accessible control.
-              animate={
-                prefersReducedMotion ? undefined : { scale: [1, 1.04, 1] }
-              }
-              transition={
-                prefersReducedMotion
-                  ? undefined
-                  : { duration: 1.8, repeat: Infinity, ease: "easeInOut" }
-              }
-              className="rounded-xl bg-brand px-6 py-3 font-medium text-brand-foreground"
-            >
-              Order now
-            </motion.span>
+              <motion.span
+                // The pulse invites a tap; it's a span (the whole bar is the
+                // button) so it stays a single accessible control.
+                animate={
+                  prefersReducedMotion ? undefined : { scale: [1, 1.04, 1] }
+                }
+                transition={
+                  prefersReducedMotion
+                    ? undefined
+                    : { duration: 1.8, repeat: Infinity, ease: "easeInOut" }
+                }
+                className="shrink-0 rounded-xl bg-brand px-5 py-2.5 font-medium whitespace-nowrap text-brand-foreground"
+              >
+                Order now
+              </motion.span>
             </span>
           </button>
         </motion.div>

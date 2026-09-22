@@ -97,7 +97,9 @@ export function MenuItemRow({ item, canManage }: MenuItemRowProps) {
       <div className="min-w-0 flex-1">
         <p className="truncate font-medium">{item.name}</p>
         <p className="text-sm text-muted-foreground tabular-nums">
-          {formatPrice(item.price)}
+          {item.sizes.length > 0
+            ? `From ${formatPrice(item.price)}`
+            : formatPrice(item.price)}
         </p>
       </div>
 

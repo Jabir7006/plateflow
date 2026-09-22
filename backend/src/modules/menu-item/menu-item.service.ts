@@ -36,28 +36,53 @@ const orderedItemError = () =>
     HTTP_STATUS.CONFLICT
   );
 
-const withCategoryName = { category: { select: { name: true } } } as const;
+const itemInclude = {
+  category: { select: { name: true } },
+  sizes: { orderBy: { sortOrder: "asc" } },
+} as const satisfies Prisma.MenuItemInclude;
+
+// Array order is the display order; sortOrder persists it.
+const toSizeCreate = (list: { label: string; price: number }[]) =>
+  list.map((size, index) => ({
+    label: size.label,
+    price: size.price,
+    sortOrder: index,
+  }));
 
 // A menu card is read on a phone, so 1200px covers it at 3x density without
 // sending pixels no screen will show.
 const IMAGE_MAX_EDGE_PX = 1200;
 const IMAGE_FOLDER = "plateflow/menu-items";
 
-type ItemRow = Prisma.MenuItemGetPayload<{ include: typeof withCategoryName }>;
+type ItemRow = Prisma.MenuItemGetPayload<{ include: typeof itemInclude }>;
 
-const toMenuItem = (item: ItemRow): MenuItem => ({
-  id: item.id,
-  name: item.name,
-  // The column holds 2 decimals, so Decimal -> number is lossless here and the
-  // value round-trips through JSON unchanged. Totals are summed in the database
-  // for the same reason: floating point is not money.
-  price: item.price.toNumber(),
-  description: item.description,
-  imageUrl: item.imageUrl,
-  isAvailable: item.isAvailable,
-  categoryId: item.categoryId,
-  categoryName: item.category.name,
-});
+const toMenuItem = (item: ItemRow): MenuItem => {
+  const sizes = item.sizes.map((size) => ({
+    id: size.id,
+    label: size.label,
+    // The column holds 2 decimals, so Decimal -> number is lossless here and the
+    // value round-trips through JSON unchanged. Totals are summed in the
+    // database for the same reason: floating point is not money.
+    price: size.price.toNumber(),
+  }));
+
+  return {
+    id: item.id,
+    name: item.name,
+    // When the item has sizes, `price` is the "from" price shown on the menu:
+    // the cheapest size, derived here rather than trusting the stored column,
+    // which staff can leave stale (sizes go in any order, no reorder UI).
+    price: sizes.length
+      ? Math.min(...sizes.map((size) => size.price))
+      : item.price.toNumber(),
+    description: item.description,
+    imageUrl: item.imageUrl,
+    isAvailable: item.isAvailable,
+    categoryId: item.categoryId,
+    categoryName: item.category.name,
+    sizes,
+  };
+};
 
 class MenuItemService {
   // Unavailable items are included by default on purpose: staff have to see and
@@ -73,7 +98,7 @@ class MenuItemService {
       },
       // Ordered by category so the list reads the way a menu does.
       orderBy: [{ category: { name: "asc" } }, { name: "asc" }],
-      include: withCategoryName,
+      include: itemInclude,
     });
 
     return items.map(toMenuItem);
@@ -92,8 +117,11 @@ class MenuItemService {
             categoryId: input.categoryId,
             // Absent means available, matching the column default.
             isAvailable: input.isAvailable ?? true,
+            ...(input.sizes?.length
+              ? { sizes: { create: toSizeCreate(input.sizes) } }
+              : {}),
           },
-          include: withCategoryName,
+          include: itemInclude,
         }),
       unknownCategoryError
     );
@@ -120,6 +148,16 @@ class MenuItemService {
       ...(input.isAvailable !== undefined && {
         isAvailable: input.isAvailable,
       }),
+      // Sizes are replaced as a set: clear the old rows and recreate from the
+      // sent order. Only touched when the caller included the field, so a PATCH
+      // that omits it leaves existing sizes alone. Safe to delete freely while
+      // orders don't reference sizes yet.
+      ...(input.sizes !== undefined && {
+        sizes: {
+          deleteMany: {},
+          create: toSizeCreate(input.sizes),
+        },
+      }),
     };
 
     const updated = await this.runWrite(
@@ -127,7 +165,7 @@ class MenuItemService {
         prisma.menuItem.update({
           where: { id },
           data,
-          include: withCategoryName,
+          include: itemInclude,
         }),
       unknownCategoryError
     );
@@ -151,7 +189,7 @@ class MenuItemService {
         prisma.menuItem.update({
           where: { id },
           data: { imageUrl: image.url, imagePublicId: image.publicId },
-          include: withCategoryName,
+          include: itemInclude,
         }),
     });
 
@@ -169,7 +207,7 @@ class MenuItemService {
     const updated = await prisma.menuItem.update({
       where: { id },
       data: { imageUrl: null, imagePublicId: null },
-      include: withCategoryName,
+      include: itemInclude,
     });
 
     if (existing.imagePublicId) {

@@ -27,7 +27,11 @@ export type {
   MenuItemIdSchema,
   ListMenuItemsSchema,
 } from "./schemas/menu.schema.js";
-export type { MenuCategory, MenuItem } from "./types/menu.types.js";
+export type {
+  MenuCategory,
+  MenuItem,
+  MenuItemSize,
+} from "./types/menu.types.js";
 export type {
   CreateTableSchema,
   UpdateTableSchema,

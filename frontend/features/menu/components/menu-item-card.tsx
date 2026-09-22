@@ -74,7 +74,9 @@ export function MenuItemCard({ item, canManage }: MenuItemCardProps) {
         <div className="flex items-start justify-between gap-3">
           <p className="min-w-0 truncate font-medium">{item.name}</p>
           <p className="shrink-0 text-sm font-semibold tabular-nums">
-            {formatPrice(item.price)}
+            {item.sizes.length > 0
+              ? `From ${formatPrice(item.price)}`
+              : formatPrice(item.price)}
           </p>
         </div>
         {item.description ? (

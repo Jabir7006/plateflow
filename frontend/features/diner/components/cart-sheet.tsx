@@ -74,8 +74,8 @@ export function CartSheet({ open, onClose, cart }: CartSheetProps) {
             {hasItems ? (
               <>
                 <ul className="min-h-0 flex-1 divide-y divide-border overflow-y-auto px-5">
-                  {cart.lines.map(({ item, quantity }) => (
-                    <li key={item.id} className="flex items-center gap-3 py-3">
+                  {cart.lines.map(({ key, item, size, quantity, unitPrice }) => (
+                    <li key={key} className="flex items-center gap-3 py-3">
                       <div className="relative size-14 shrink-0 overflow-hidden rounded-xl bg-muted">
                         {item.imageUrl ? (
                           <Image
@@ -96,17 +96,22 @@ export function CartSheet({ open, onClose, cart }: CartSheetProps) {
                         <p className="truncate font-medium text-foreground">
                           {item.name}
                         </p>
-                        <p className="text-sm text-brand tabular-nums">
-                          {formatPrice(item.price * quantity)}
+                        {size ? (
+                          <span className="mt-0.5 inline-block rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                            {size.label}
+                          </span>
+                        ) : null}
+                        <p className="mt-0.5 text-sm text-brand tabular-nums">
+                          {formatPrice(unitPrice * quantity)}
                         </p>
                       </div>
 
                       <QuantityControl
                         variant="pill"
-                        label={item.name}
+                        label={size ? `${item.name} ${size.label}` : item.name}
                         quantity={quantity}
-                        onAdd={() => cart.add(item)}
-                        onRemove={() => cart.remove(item.id)}
+                        onAdd={() => cart.add(item, size)}
+                        onRemove={() => cart.remove(item.id, size?.id)}
                       />
                     </li>
                   ))}
