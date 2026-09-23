@@ -65,17 +65,29 @@ model Order {
   table     Table       @relation(fields: [tableId], references: [id])
   status    OrderStatus @default(PENDING)
   total     Decimal     @db.Decimal(10, 2)
+  note      String?
   createdAt DateTime    @default(now())
+  // The status page shows "updated Xm ago" and, later, drives the live display.
+  updatedAt DateTime    @updatedAt
   items     OrderItem[]
+
+  @@index([tableId])
 }
 
 model OrderItem {
   id         String   @id @default(cuid())
   orderId    String
-  order      Order    @relation(fields: [orderId], references: [id])
+  // A line belongs to its order: removing the order removes its lines.
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  // Kept RESTRICT (the default): an item that has been ordered can't be deleted,
+  // so history stays intact. The snapshots below are what the diner actually
+  // ordered, frozen at order time, so the record survives later menu edits.
   menuItemId String
   menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+  nameSnapshot String
+  sizeLabel    String?
   quantity   Int
+  // The per-unit price paid, snapshotted so a later re-price never rewrites history.
   price      Decimal  @db.Decimal(10, 2)
 
   @@index([orderId])

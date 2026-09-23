@@ -5,6 +5,8 @@ export * from "./types/menu.types.js";
 export * from "./schemas/table.schema.js";
 export * from "./types/table.types.js";
 export * from "./types/diner.types.js";
+export * from "./schemas/order.schema.js";
+export * from "./types/order.types.js";
 export type {
   LoginSchema,
   InviteSchema,
@@ -39,3 +41,13 @@ export type {
 } from "./schemas/table.schema.js";
 export type { Table } from "./types/table.types.js";
 export type { TableMenu } from "./types/diner.types.js";
+export type {
+  PlaceOrderSchema,
+  OrderStatusParamsSchema,
+} from "./schemas/order.schema.js";
+export type {
+  OrderStatus,
+  OrderLine,
+  PlacedOrder,
+  OrderStatusView,
+} from "./types/order.types.js";

@@ -15,7 +15,8 @@ interface MenuTopbarProps {
 
 // Compact sticky header for the diner menu: restaurant mark + which table the
 // diner scanned on the left, the light/dark toggle and immersive/simple view
-// toggle on the right. The cart lives in the bottom bar, not here.
+// toggle on the right. The cart and the orders list both live at the bottom, not
+// here, so the header stays uncluttered on small phones.
 export function MenuTopbar({
   tableNumber,
   mode,

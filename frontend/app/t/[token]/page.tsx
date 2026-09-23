@@ -44,7 +44,11 @@ export default async function MenuPage({ params }: MenuPageProps) {
       {groups.length === 0 ? (
         <EmptyMenu />
       ) : (
-        <MenuExperience tableNumber={menu.table.number} groups={groups} />
+        <MenuExperience
+          tableNumber={menu.table.number}
+          groups={groups}
+          token={token}
+        />
       )}
     </div>
   )

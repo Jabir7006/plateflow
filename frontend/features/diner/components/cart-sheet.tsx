@@ -1,7 +1,7 @@
 "use client"
 
 import Image from "next/image"
-import { UtensilsCrossed, X } from "lucide-react"
+import { Loader2, UtensilsCrossed, X } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { formatPrice } from "@/features/menu/format-price"
 import type { Cart } from "../hooks/use-cart"
@@ -11,15 +11,34 @@ interface CartSheetProps {
   open: boolean
   onClose: () => void
   cart: Cart
+  // Optional "special instructions" note, lifted so it survives the sheet
+  // closing/reopening and is cleared on a successful order.
+  note: string
+  onNoteChange: (note: string) => void
+  // Whether an order is currently being placed (disables the submit button).
+  placing: boolean
+  // Places the order. Owned by MenuExperience so the bar and this sheet share
+  // one mutation.
+  onPlace: () => void
 }
 
+const NOTE_MAX = 200
+
 // A slide-up sheet showing everything the diner has selected: a row per line
-// with a thumbnail, name, per-line stepper and price, then the grand total and
-// an "Order now" button. Rendered inside the .menu-page tree (no portal) so the
-// theme tokens resolve. Read-only for now — ordering isn't wired up, so the
-// button explains that. Built with motion rather than a drawer lib to avoid a
-// dependency for one sheet.
-export function CartSheet({ open, onClose, cart }: CartSheetProps) {
+// with a thumbnail, name, per-line stepper and price, a "special instructions"
+// note, then the grand total and a "Place order" button that sends it to the
+// kitchen. Rendered inside the .menu-page tree (no portal) so the theme tokens
+// resolve. Built with motion rather than a drawer lib to avoid a dependency for
+// one sheet.
+export function CartSheet({
+  open,
+  onClose,
+  cart,
+  note,
+  onNoteChange,
+  placing,
+  onPlace,
+}: CartSheetProps) {
   const hasItems = cart.lines.length > 0
 
   return (
@@ -118,7 +137,26 @@ export function CartSheet({ open, onClose, cart }: CartSheetProps) {
                 </ul>
 
                 <div className="border-t border-border px-5 pt-3">
-                  <div className="flex items-center justify-between">
+                  <label
+                    htmlFor="order-note"
+                    className="mb-1.5 block text-sm font-medium text-foreground"
+                  >
+                    Special instructions
+                    <span className="ml-1 font-normal text-muted-foreground">
+                      (optional)
+                    </span>
+                  </label>
+                  <textarea
+                    id="order-note"
+                    value={note}
+                    onChange={(e) => onNoteChange(e.target.value.slice(0, NOTE_MAX))}
+                    maxLength={NOTE_MAX}
+                    rows={2}
+                    placeholder="e.g. no onions, extra spicy"
+                    className="w-full resize-none rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-brand focus:outline-none"
+                  />
+
+                  <div className="mt-3 flex items-center justify-between">
                     <span className="text-muted-foreground">Total</span>
                     <span className="font-display text-xl font-bold text-foreground tabular-nums">
                       {formatPrice(cart.total)}
@@ -127,18 +165,21 @@ export function CartSheet({ open, onClose, cart }: CartSheetProps) {
 
                   <button
                     type="button"
-                    // Read-only: no order is placed yet.
-                    onClick={() =>
-                      window.alert(
-                        "Ordering from your phone is coming soon. For now, please ask a member of staff to place your order."
-                      )
-                    }
-                    className="mt-3 w-full rounded-xl bg-brand py-3.5 font-medium text-brand-foreground hover:brightness-105"
+                    onClick={onPlace}
+                    disabled={placing}
+                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-brand py-3.5 font-medium text-brand-foreground hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-70"
                   >
-                    Order now
+                    {placing ? (
+                      <>
+                        <Loader2 className="size-4 animate-spin" />
+                        Placing order…
+                      </>
+                    ) : (
+                      "Place order"
+                    )}
                   </button>
                   <p className="mt-2 text-center text-xs text-muted-foreground">
-                    Ordering from your phone is coming soon.
+                    We&apos;ll send this to the kitchen and show you its status.
                   </p>
                 </div>
               </>
