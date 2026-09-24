@@ -58,5 +58,28 @@ export const orderStatusParamsSchema = z.object({
   }),
 });
 
+// Every status a line can hold, mirroring the Prisma enum. The status page and
+// the staff board both read the union type in order.types.ts; this is the same
+// set expressed for validation. Which transitions are *legal* (forward-only,
+// plus cancel) is enforced server-side, not here — the schema only guards that
+// the value is a real status.
+export const orderStatusValues = [
+  "PENDING",
+  "PREPARING",
+  "READY",
+  "SERVED",
+  "CANCELLED",
+] as const;
+
+// Staff advancing an order: the order id in the path, the target status in the
+// body. Used by the authenticated PATCH /orders/:orderId/status route.
+export const updateOrderStatusSchema = z.object({
+  params: z.object({ orderId: requiredId("Order") }),
+  body: z.object({
+    status: z.enum(orderStatusValues, "That isn't a valid order status"),
+  }),
+});
+
 export type PlaceOrderSchema = z.infer<typeof placeOrderSchema>;
 export type OrderStatusParamsSchema = z.infer<typeof orderStatusParamsSchema>;
+export type UpdateOrderStatusSchema = z.infer<typeof updateOrderStatusSchema>;

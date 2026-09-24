@@ -11,6 +11,8 @@ import menuRoutes from "./modules/menu/menu.routes.js";
 import tableRoutes from "./modules/table/table.routes.js";
 import dinerRoutes from "./modules/diner/diner.routes.js";
 import orderRoutes from "./modules/order/order.routes.js";
+import staffOrderRoutes from "./modules/order/order.staff.routes.js";
+import realtimeRoutes from "./modules/realtime/realtime.routes.js";
 import { ENV } from "./config/env.js";
 
 const app = express();
@@ -40,6 +42,10 @@ app.use("/api/v1/tables", tableRoutes);
 app.use("/api/v1/t", dinerRoutes);
 // Public and token-scoped too: placing an order and reading its status.
 app.use("/api/v1/t", orderRoutes);
+// Authenticated staff order surface: the live board and status control.
+app.use("/api/v1/orders", staffOrderRoutes);
+// Authenticated: mint a short-lived socket.io ticket for the staff session.
+app.use("/api/v1/realtime", realtimeRoutes);
 
 // Error Handling Middleware
 app.use(notFoundHandler);

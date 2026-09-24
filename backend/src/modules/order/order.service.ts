@@ -2,11 +2,14 @@ import type {
   OrderStatusView,
   PlaceOrderSchema,
   PlacedOrder,
+  StaffOrderView,
 } from "@plateflow/shared";
 import { Prisma } from "../../generated/prisma/client.js";
+import { OrderStatus } from "../../generated/prisma/enums.js";
 import { prisma } from "../../lib/prisma.js";
 import AppError from "../../utils/AppError.js";
 import { HTTP_STATUS } from "../../constants/http.js";
+import { emitOrderNew, emitOrderUpdated } from "../../realtime/realtime.js";
 
 type PlaceOrderInput = PlaceOrderSchema["body"];
 
@@ -62,6 +65,49 @@ const toStatusView = (order: OrderRow): OrderStatusView => ({
     unitPrice: item.price.toNumber(),
   })),
 });
+
+const orderNotFoundError = () =>
+  new AppError("We couldn't find this order.", HTTP_STATUS.NOT_FOUND);
+
+const isTerminalStatus = (status: OrderStatus) =>
+  status === OrderStatus.SERVED || status === OrderStatus.CANCELLED;
+
+// A rejected status change: either the order is already finished, or the move
+// isn't a legal step. Names the current status so staff see why (409, mirroring
+// the place-order conflicts above).
+const transitionError = (current: OrderStatus, target: OrderStatus) =>
+  new AppError(
+    isTerminalStatus(current)
+      ? `This order is already ${current.toLowerCase()}.`
+      : `Can't move an order from ${current.toLowerCase()} to ${target.toLowerCase()}.`,
+    HTTP_STATUS.CONFLICT
+  );
+
+// Which statuses an order may legally move *from* to reach each target. Encodes
+// forward-only progress plus cancel-from-any-active; PENDING is the start state,
+// so it is never a target. Terminal statuses (SERVED, CANCELLED) appear in no
+// list, so nothing can move out of them.
+const STATUS_PREDECESSORS: Partial<Record<OrderStatus, OrderStatus[]>> = {
+  [OrderStatus.PREPARING]: [OrderStatus.PENDING],
+  [OrderStatus.READY]: [OrderStatus.PREPARING],
+  [OrderStatus.SERVED]: [OrderStatus.READY],
+  [OrderStatus.CANCELLED]: [
+    OrderStatus.PENDING,
+    OrderStatus.PREPARING,
+    OrderStatus.READY,
+  ],
+};
+
+const loadStaffView = async (orderId: string): Promise<StaffOrderView> => {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: orderItemInclude,
+  });
+  if (!order) {
+    throw orderNotFoundError();
+  }
+  return toStatusView(order);
+};
 
 class OrderService {
   async placeOrder(token: string, input: PlaceOrderInput): Promise<PlacedOrder> {
@@ -132,8 +178,12 @@ class OrderService {
         note: input.note ?? null,
         items: { create: lines },
       },
-      select: { id: true },
+      include: orderItemInclude,
     });
+
+    // Push it to the staff board so a new order lands there instantly. The diner
+    // only needs the id back — the capability to watch this order.
+    emitOrderNew(toStatusView(order));
 
     return { id: order.id };
   }
@@ -151,6 +201,66 @@ class OrderService {
     }
 
     return toStatusView(order);
+  }
+
+  // The live kitchen board: every order still in play (not served or cancelled),
+  // oldest first so staff work the queue front-to-back.
+  async listActiveOrders(): Promise<StaffOrderView[]> {
+    const orders = await prisma.order.findMany({
+      where: {
+        status: { notIn: [OrderStatus.SERVED, OrderStatus.CANCELLED] },
+      },
+      include: orderItemInclude,
+      orderBy: { createdAt: "asc" },
+    });
+
+    return orders.map(toStatusView);
+  }
+
+  // Staff advancing an order (PENDING → PREPARING → READY → SERVED) or cancelling
+  // it. The transition is guarded so it can only step forward or cancel, and the
+  // guard rides the write itself (updateMany filtered on the allowed previous
+  // statuses) so two staff acting on the same order at once can't both apply.
+  async updateOrderStatus(
+    orderId: string,
+    status: OrderStatus
+  ): Promise<StaffOrderView> {
+    const predecessors = STATUS_PREDECESSORS[status];
+
+    // No predecessors means `status` is PENDING — the start state, never a
+    // target. Report it against the order's real state (idempotent if it somehow
+    // already sits there, otherwise a plain conflict).
+    if (!predecessors) {
+      const current = await prisma.order.findUnique({
+        where: { id: orderId },
+        select: { status: true },
+      });
+      if (!current) throw orderNotFoundError();
+      if (current.status === status) return loadStaffView(orderId);
+      throw transitionError(current.status, status);
+    }
+
+    const result = await prisma.order.updateMany({
+      where: { id: orderId, status: { in: predecessors } },
+      data: { status },
+    });
+
+    // Nothing moved: the order is gone, already in this status (a double-tap —
+    // treat as success), or in a state this step isn't legal from. One read tells
+    // the three apart.
+    if (result.count === 0) {
+      const current = await prisma.order.findUnique({
+        where: { id: orderId },
+        select: { status: true },
+      });
+      if (!current) throw orderNotFoundError();
+      if (current.status === status) return loadStaffView(orderId);
+      throw transitionError(current.status, status);
+    }
+
+    const view = await loadStaffView(orderId);
+    emitOrderUpdated(view);
+    return view;
   }
 }
 

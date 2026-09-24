@@ -44,10 +44,16 @@ export type { TableMenu } from "./types/diner.types.js";
 export type {
   PlaceOrderSchema,
   OrderStatusParamsSchema,
+  UpdateOrderStatusSchema,
 } from "./schemas/order.schema.js";
 export type {
   OrderStatus,
   OrderLine,
   PlacedOrder,
   OrderStatusView,
+  StaffOrderView,
+  OrderEventPayload,
+  RealtimeTicket,
+  StaffSocketAuth,
+  DinerSocketAuth,
 } from "./types/order.types.js";
