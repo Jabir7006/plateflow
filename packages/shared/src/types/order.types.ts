@@ -46,6 +46,40 @@ export interface OrderStatusView {
 // diverge later (e.g. staff-only fields) without touching the diner side.
 export type StaffOrderView = OrderStatusView;
 
+// A page of the order history — the full record behind the live board (every
+// order, not just the active ones), newest first. Carries the same per-order
+// view as the board so the history UI can show details without a second fetch.
+export interface OrderHistoryResult {
+  orders: StaffOrderView[];
+  page: number;
+  pageSize: number;
+  // Total orders matching the filter, across all pages — for page counts.
+  total: number;
+  totalPages: number;
+}
+
+// Orders and money for one status within a reporting range.
+export interface OrderStatusBreakdown {
+  status: OrderStatus;
+  count: number;
+  // Sum of `total` for orders in this status. For CANCELLED this is the value
+  // that fell through; realized sales is the SERVED row (see OrderStats.revenue).
+  revenue: number;
+}
+
+// A basic sales summary over a date range (all time when no range is given).
+// Every figure is windowed by when orders were *placed* (createdAt). `revenue`
+// sums the totals of orders in that window that reached SERVED; `byStatus` keeps
+// the full per-status breakdown so a caller can show in-progress or cancelled
+// totals too.
+export interface OrderStats {
+  from: string | null;
+  to: string | null;
+  totalOrders: number;
+  revenue: number;
+  byStatus: OrderStatusBreakdown[];
+}
+
 // The realtime contract, shared so the socket server and the browser client
 // agree on names and payloads. `new` fires when a diner places an order (to
 // staff); `updated` fires when its status changes (to staff and to that order's

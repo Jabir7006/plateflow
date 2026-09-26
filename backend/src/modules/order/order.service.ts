@@ -1,9 +1,14 @@
 import type {
+  OrderHistoryQuerySchema,
+  OrderHistoryResult,
+  OrderStats,
+  OrderStatsQuerySchema,
   OrderStatusView,
   PlaceOrderSchema,
   PlacedOrder,
   StaffOrderView,
 } from "@plateflow/shared";
+import { orderStatusValues } from "@plateflow/shared";
 import { Prisma } from "../../generated/prisma/client.js";
 import { OrderStatus } from "../../generated/prisma/enums.js";
 import { prisma } from "../../lib/prisma.js";
@@ -107,6 +112,19 @@ const loadStaffView = async (orderId: string): Promise<StaffOrderView> => {
     throw orderNotFoundError();
   }
   return toStatusView(order);
+};
+
+// Build a createdAt filter from optional ISO bounds. Absent bounds are omitted,
+// so no range at all means "all time".
+const createdAtRange = (
+  from?: string,
+  to?: string
+): Prisma.OrderWhereInput["createdAt"] | undefined => {
+  if (!from && !to) return undefined;
+  return {
+    ...(from ? { gte: new Date(from) } : {}),
+    ...(to ? { lte: new Date(to) } : {}),
+  };
 };
 
 class OrderService {
@@ -215,6 +233,89 @@ class OrderService {
     });
 
     return orders.map(toStatusView);
+  }
+
+  // The full order record behind the live board — every order, newest first,
+  // paged and filterable by status and date range. The board shows only active
+  // orders; served and cancelled ones live on here.
+  async listOrderHistory(
+    query: OrderHistoryQuerySchema["query"]
+  ): Promise<OrderHistoryResult> {
+    const { page, pageSize, status, from, to } = query;
+
+    const createdAt = createdAtRange(from, to);
+    const where: Prisma.OrderWhereInput = {
+      ...(status ? { status } : {}),
+      ...(createdAt ? { createdAt } : {}),
+    };
+
+    // Count first so the requested page can be clamped to what exists: asking past
+    // the end serves the last real page, never "Page 99 of 1" with an empty list
+    // (and never an unbounded skip).
+    const total = await prisma.order.count({ where });
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const servedPage = Math.min(page, totalPages);
+
+    const orders = await prisma.order.findMany({
+      where,
+      include: orderItemInclude,
+      // id breaks ties so a page boundary can't fall between two orders sharing a
+      // createdAt (a rush) — otherwise the count and each page could disagree on
+      // tie order, dropping one order and repeating another across pages.
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      skip: (servedPage - 1) * pageSize,
+      take: pageSize,
+    });
+
+    // The count and the page read aren't wrapped in a transaction: an order
+    // committed between them can momentarily shift the count off the page's rows,
+    // a boundary blip that self-corrects on reload. A REPEATABLE READ snapshot
+    // would remove it, but under Postgres' default READ COMMITTED each statement
+    // takes a fresh snapshot anyway, and pinning one means an interactive
+    // transaction — a held connection plus a transaction-start round-trip that
+    // cold-starts to P2028 on serverless Postgres (Neon). Not worth it for an
+    // internal history view.
+    return {
+      orders: orders.map(toStatusView),
+      page: servedPage,
+      pageSize,
+      total,
+      totalPages,
+    };
+  }
+
+  // A basic sales summary for a date range (all time when unbounded), windowed by
+  // order placement time: a per-status breakdown plus revenue from the orders in
+  // that window that reached SERVED. One grouped query does it.
+  async getOrderStats(query: OrderStatsQuerySchema["query"]): Promise<OrderStats> {
+    const { from, to } = query;
+
+    const createdAt = createdAtRange(from, to);
+    const where: Prisma.OrderWhereInput = createdAt ? { createdAt } : {};
+
+    const groups = await prisma.order.groupBy({
+      by: ["status"],
+      where,
+      _count: { _all: true },
+      _sum: { total: true },
+    });
+
+    // Project onto every status so the shape is stable even for statuses with no
+    // orders in the range.
+    const byStatus = orderStatusValues.map((value) => {
+      const group = groups.find((g) => g.status === value);
+      const sum = group?._sum.total;
+      return {
+        status: value,
+        count: group?._count._all ?? 0,
+        revenue: sum ? sum.toNumber() : 0,
+      };
+    });
+
+    const totalOrders = byStatus.reduce((acc, row) => acc + row.count, 0);
+    const revenue = byStatus.find((row) => row.status === "SERVED")?.revenue ?? 0;
+
+    return { from: from ?? null, to: to ?? null, totalOrders, revenue, byStatus };
   }
 
   // Staff advancing an order (PENDING → PREPARING → READY → SERVED) or cancelling

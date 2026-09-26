@@ -2,6 +2,8 @@ import catchAsync from "../../utils/catchAsync.js";
 import { sendResponse } from "../../utils/ApiResponse.js";
 import { HTTP_STATUS } from "../../constants/http.js";
 import type {
+  OrderHistoryQuerySchema,
+  OrderStatsQuerySchema,
   OrderStatusParamsSchema,
   PlaceOrderSchema,
   UpdateOrderStatusSchema,
@@ -25,6 +27,20 @@ export const getOrderStatus = catchAsync(async (req, res) => {
 export const listOrders = catchAsync(async (_req, res) => {
   const orders = await orderService.listActiveOrders();
   sendResponse(res, HTTP_STATUS.SUCCESS, orders);
+});
+
+export const listOrderHistory = catchAsync(async (req, res) => {
+  // validate() has already coerced page/pageSize to numbers, so the parsed shape
+  // no longer overlaps Express's all-string ParsedQs — cast through unknown.
+  const query = req.query as unknown as OrderHistoryQuerySchema["query"];
+  const result = await orderService.listOrderHistory(query);
+  sendResponse(res, HTTP_STATUS.SUCCESS, result);
+});
+
+export const getOrderStats = catchAsync(async (req, res) => {
+  const query = req.query as OrderStatsQuerySchema["query"];
+  const stats = await orderService.getOrderStats(query);
+  sendResponse(res, HTTP_STATUS.SUCCESS, stats);
 });
 
 export const updateOrderStatus = catchAsync(async (req, res) => {

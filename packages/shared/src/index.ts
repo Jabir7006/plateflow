@@ -45,6 +45,8 @@ export type {
   PlaceOrderSchema,
   OrderStatusParamsSchema,
   UpdateOrderStatusSchema,
+  OrderHistoryQuerySchema,
+  OrderStatsQuerySchema,
 } from "./schemas/order.schema.js";
 export type {
   OrderStatus,
@@ -52,6 +54,9 @@ export type {
   PlacedOrder,
   OrderStatusView,
   StaffOrderView,
+  OrderHistoryResult,
+  OrderStats,
+  OrderStatusBreakdown,
   OrderEventPayload,
   RealtimeTicket,
   StaffSocketAuth,

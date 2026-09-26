@@ -72,6 +72,12 @@ model Order {
   items     OrderItem[]
 
   @@index([tableId])
+  // History is browsed newest-first over a date range; stats groups by status
+  // over a range. These back both without a sequential scan + sort as orders
+  // accumulate: [createdAt] for the unfiltered record, [status, createdAt] for
+  // status-filtered history and the stats group-by.
+  @@index([createdAt])
+  @@index([status, createdAt])
 }
 
 model OrderItem {
