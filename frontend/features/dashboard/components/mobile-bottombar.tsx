@@ -25,14 +25,14 @@ export function MobileBottomBar() {
               href={item.href}
               aria-current={isActive ? "page" : undefined}
               className={cn(
-                "flex flex-col items-center gap-1 py-2.5 text-[10px] font-medium transition-colors",
+                "flex min-w-0 flex-col items-center gap-1 px-1 py-2.5 text-[10px] font-medium transition-colors",
                 isActive
                   ? "text-foreground"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <item.icon className="size-5" />
-              {item.label}
+              <item.icon className="size-5 shrink-0" />
+              <span className="max-w-full truncate">{item.label}</span>
             </Link>
           )
         })}

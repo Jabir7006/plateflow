@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react"
 import {
   ClipboardList,
+  History,
   LayoutGrid,
   Table2,
   Users,
@@ -20,6 +21,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutGrid },
   { label: "Menu", href: "/menu", icon: UtensilsCrossed },
   { label: "Orders", href: "/orders", icon: ClipboardList },
+  { label: "History", href: "/orders/history", icon: History },
   { label: "Staff", href: "/staff", icon: Users },
   { label: "Tables", href: "/tables", icon: Table2 },
 ]

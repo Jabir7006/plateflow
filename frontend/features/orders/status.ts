@@ -1,4 +1,6 @@
 import type { OrderStatus } from "@plateflow/shared"
+import type { badgeVariants } from "@/components/ui/badge"
+import type { VariantProps } from "class-variance-authority"
 
 // The board only shows orders still in play; SERVED and CANCELLED drop off it.
 export function isActiveStatus(status: OrderStatus): boolean {
@@ -48,4 +50,19 @@ export const NEXT_STATUS: Partial<
     label: "Mark served",
     className: "",
   },
+}
+
+type BadgeVariant = VariantProps<typeof badgeVariants>["variant"]
+
+// Every status as a Badge, for the history table — unlike STATUS_PILL (active
+// stages only), this covers the terminal SERVED/CANCELLED the history shows.
+export const HISTORY_STATUS_BADGE: Record<
+  OrderStatus,
+  { label: string; variant: BadgeVariant }
+> = {
+  PENDING: { label: "Pending", variant: "warning" },
+  PREPARING: { label: "Preparing", variant: "default" },
+  READY: { label: "Ready", variant: "secondary" },
+  SERVED: { label: "Served", variant: "success" },
+  CANCELLED: { label: "Cancelled", variant: "destructive" },
 }
