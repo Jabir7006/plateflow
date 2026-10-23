@@ -25,5 +25,9 @@ pnpm-debug.log*
 # Prisma generated client
 backend/src/generated/prisma/
 
+# Local-only migration/DB verification harness (row counts, digests, checksums,
+# timestamps are environment-specific and would rot in the repo)
+backend/.verify/
+
 # OS
 .DS_Store

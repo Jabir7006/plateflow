@@ -7,16 +7,36 @@ datasource db {
   provider = "postgresql"
 }
 
+// Tenant relations stay nullable until all create paths supply restaurantId.
+model Restaurant {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users          User[]
+  menuCategories MenuCategory[]
+  menuItems      MenuItem[]
+  tables         Table[]
+  orders         Order[]
+}
+
 model User {
   id                 String              @id @default(cuid())
   fullName           String
+  // Login is global: an email identifies one account at one restaurant (v1).
   email              String              @unique
   password           String?
   role               Role
   status             UserStatus          @default(INVITED)
   createdAt          DateTime            @default(now())
+  restaurantId       String?
+  restaurant         Restaurant?         @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
   verificationTokens VerificationToken[]
   refreshTokens      RefreshToken[]
+
+  @@index([restaurantId])
 }
 
 model MenuItem {
@@ -31,8 +51,12 @@ model MenuItem {
   isAvailable   Boolean        @default(true)
   categoryId    String
   category      MenuCategory   @relation(fields: [categoryId], references: [id])
+  restaurantId  String?
+  restaurant    Restaurant?    @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
   sizes         MenuItemSize[]
   orderItems    OrderItem[]
+
+  @@index([restaurantId])
 }
 
 model MenuItemSize {
@@ -47,37 +71,48 @@ model MenuItemSize {
 }
 
 model Table {
-  id     String  @id @default(cuid())
-  number Int     @unique
-  qrCode String  @unique
-  orders Order[]
+  id           String      @id @default(cuid())
+  number       Int
+  // The QR token is the only tenant anchor on the public diner path, so it must
+  // resolve to one table with no prior restaurant context: globally unique.
+  qrCode       String      @unique
+  restaurantId String?
+  restaurant   Restaurant? @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  orders       Order[]
+
+  // Table numbers are per-restaurant: two restaurants can both have a "Table 1".
+  @@unique([restaurantId, number])
 }
 
 model MenuCategory {
-  id    String     @id @default(cuid())
-  name  String     @unique
-  items MenuItem[]
+  id           String      @id @default(cuid())
+  name         String
+  restaurantId String?
+  restaurant   Restaurant? @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  items        MenuItem[]
+
+  // Category names are unique within a restaurant, not across the platform.
+  @@unique([restaurantId, name])
 }
 
 model Order {
-  id        String      @id @default(cuid())
-  tableId   String
-  table     Table       @relation(fields: [tableId], references: [id])
-  status    OrderStatus @default(PENDING)
-  total     Decimal     @db.Decimal(10, 2)
-  note      String?
-  createdAt DateTime    @default(now())
+  id           String      @id @default(cuid())
+  tableId      String
+  table        Table       @relation(fields: [tableId], references: [id])
+  restaurantId String?
+  restaurant   Restaurant? @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  status       OrderStatus @default(PENDING)
+  total        Decimal     @db.Decimal(10, 2)
+  note         String?
+  createdAt    DateTime    @default(now())
   // The status page shows "updated Xm ago" and, later, drives the live display.
-  updatedAt DateTime    @updatedAt
-  items     OrderItem[]
+  updatedAt    DateTime    @updatedAt
+  items        OrderItem[]
 
   @@index([tableId])
-  // History is browsed newest-first over a date range; stats groups by status
-  // over a range. These back both without a sequential scan + sort as orders
-  // accumulate: [createdAt] for the unfiltered record, [status, createdAt] for
-  // status-filtered history and the stats group-by.
-  @@index([createdAt])
-  @@index([status, createdAt])
+  // Supports restaurant-scoped history and status/date filtering.
+  @@index([restaurantId, createdAt])
+  @@index([restaurantId, status, createdAt])
 }
 
 model OrderItem {

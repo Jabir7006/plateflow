@@ -11,19 +11,44 @@ const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 const { SEED_MANAGER_EMAIL, SEED_MANAGER_PASSWORD } = ENV;
+// Matches every other write path (create-restaurant.ts, shared auth schema):
+// the email column is case-sensitive and globally unique, so an un-normalized
+// value could create a duplicate account and bypass the cross-tenant guard.
+const seedEmail = SEED_MANAGER_EMAIL.trim().toLowerCase();
 
 async function main() {
-  await prisma.user.upsert({
-    where: { email: SEED_MANAGER_EMAIL },
+  const passwordHash = await hashPassword(SEED_MANAGER_PASSWORD);
 
-    update: { role: "OWNER" },
-    create: {
-      fullName: "Jabir Ahmad",
-      email: SEED_MANAGER_EMAIL,
-      password: await hashPassword(SEED_MANAGER_PASSWORD),
-      role: "OWNER",
-      status: "ACTIVE",
-    },
+  await prisma.$transaction(async (tx) => {
+    const restaurant = await tx.restaurant.upsert({
+      where: { slug: "default" },
+      update: {},
+      create: { name: "My Restaurant", slug: "default" },
+    });
+
+    const owner = await tx.user.upsert({
+      where: { email: seedEmail },
+      update: { role: "OWNER" },
+      create: {
+        fullName: "Jabir Ahmad",
+        email: seedEmail,
+        password: passwordHash,
+        role: "OWNER",
+        status: "ACTIVE",
+        restaurantId: restaurant.id,
+      },
+    });
+
+    if (owner.restaurantId !== null && owner.restaurantId !== restaurant.id) {
+      throw new Error("Seed owner email already belongs to another restaurant");
+    }
+
+    if (owner.restaurantId === null) {
+      await tx.user.updateMany({
+        where: { id: owner.id, restaurantId: null },
+        data: { restaurantId: restaurant.id },
+      });
+    }
   });
 }
 
