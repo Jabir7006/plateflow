@@ -45,9 +45,22 @@ type SessionChain = {
   sessionExpiresAt: Date;
 };
 
-type StoredRefreshToken = RefreshToken & { user: User };
+type StoredRefreshToken = RefreshToken & { user: UserWithRestaurant };
 
-type UsableInvite = VerificationToken & { user: User };
+type UsableInvite = VerificationToken & { user: UserWithRestaurant };
+
+// Every auth path needs the account's restaurant: it names the tenant in the
+// session, and the access token carries its id. Kept as one include so the six
+// queries below can't drift apart.
+const withRestaurant = {
+  restaurant: { select: { id: true, name: true } },
+} as const satisfies Prisma.UserInclude;
+
+// The restaurant relation is required in the schema, so the payload carries it
+// non-null: a session is only ever issued to an account that has a tenant.
+type UserWithRestaurant = Prisma.UserGetPayload<{
+  include: typeof withRestaurant;
+}>;
 
 export class ConcurrentRefreshError extends AppError {
   constructor() {
@@ -58,13 +71,14 @@ export class ConcurrentRefreshError extends AppError {
   }
 }
 
-const toAuthUser = (user: User): AuthUser => ({
+const toAuthUser = (user: UserWithRestaurant): AuthUser => ({
   id: user.id,
   fullName: user.fullName,
   email: user.email,
   role: user.role,
   status: user.status,
   createdAt: user.createdAt.toISOString(),
+  restaurant: { id: user.restaurant.id, name: user.restaurant.name },
 });
 
 class AuthService {
@@ -76,6 +90,7 @@ class AuthService {
 
     const user = await prisma.user.findUnique({
       where: { email },
+      include: withRestaurant,
     });
 
     if (!user || !user.password) {
@@ -140,6 +155,7 @@ class AuthService {
       return tx.user.update({
         where: { id: invite.userId },
         data: { password: passwordHash, status: UserStatus.ACTIVE },
+        include: withRestaurant,
       });
     });
 
@@ -180,7 +196,7 @@ class AuthService {
 
     const stored = await prisma.refreshToken.findUnique({
       where: { tokenHash: sha256(rawToken) },
-      include: { user: true },
+      include: { user: { include: withRestaurant } },
     });
 
     if (!stored) {
@@ -207,6 +223,7 @@ class AuthService {
   async getMe(userId: User["id"]): Promise<AuthUser> {
     const user = await prisma.user.findUnique({
       where: { id: userId },
+      include: withRestaurant,
     });
 
     if (!user) {
@@ -229,7 +246,9 @@ class AuthService {
     // cannot be turned back into a working link.
     const invite = await prisma.verificationToken.findUnique({
       where: { token: sha256(rawToken) },
-      include: { user: true },
+      include: {
+        user: { include: withRestaurant },
+      },
     });
 
     if (!invite || invite.type !== TokenType.STAFF_INVITE) {
@@ -335,7 +354,7 @@ class AuthService {
   }
 
   private async issueTokens(
-    user: Pick<User, "id" | "role" | "status">,
+    user: Pick<User, "id" | "role" | "status" | "restaurantId">,
     chain: SessionChain,
     context: SessionContext,
     client: Prisma.TransactionClient = prisma
@@ -343,6 +362,7 @@ class AuthService {
     const accessToken = signToken(
       {
         userId: user.id,
+        restaurantId: user.restaurantId,
         role: user.role,
         status: user.status,
       },

@@ -13,7 +13,9 @@ export const issueTicket = catchAsync(async (req, res) => {
     throw new AppError("Authentication required", HTTP_STATUS.UNAUTHORIZED);
   }
 
-  const { userId, role } = req.user;
-  const payload: RealtimeTicket = { ticket: signWsTicket({ userId, role }) };
+  const { userId, role, restaurantId } = req.user;
+  const payload: RealtimeTicket = {
+    ticket: signWsTicket({ userId, restaurantId, role }),
+  };
   sendResponse(res, HTTP_STATUS.SUCCESS, payload);
 });

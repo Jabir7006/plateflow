@@ -5,6 +5,7 @@ import {
   updateTableSchema,
 } from "@plateflow/shared";
 import validate from "../../middlewares/validate.middleware.js";
+import { tenantContext } from "../../middlewares/tenant.middleware.js";
 import { authenticate, requireRole } from "../auth/auth.middleware.js";
 import { Role } from "../../generated/prisma/enums.js";
 import {
@@ -20,7 +21,11 @@ const router = Router();
 // Every route here is staff-only: table management is a dashboard concern, not
 // something a customer touches. (The public ordering route resolves a table by
 // its QR token instead, and lives elsewhere.)
-router.use(authenticate, requireRole(Role.OWNER, Role.MANAGER));
+router.use(
+  authenticate,
+  tenantContext,
+  requireRole(Role.OWNER, Role.MANAGER)
+);
 
 router.get("/", listTables);
 

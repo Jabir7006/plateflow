@@ -14,6 +14,12 @@ export interface AuthUser {
   role: Role;
   status: UserStatus;
   createdAt: string;
+  // The restaurant this account belongs to. Client-side display only: the server
+  // derives the tenant from the signed session, never from a request field.
+  restaurant: {
+    id: string;
+    name: string;
+  };
 }
 
 // What GET /auth/verify-invite discloses to whoever holds a live link: enough

@@ -5,6 +5,7 @@ import {
   updateOrderStatusSchema,
 } from "@plateflow/shared";
 import validate from "../../middlewares/validate.middleware.js";
+import { tenantContext } from "../../middlewares/tenant.middleware.js";
 import { authenticate, requireRole } from "../auth/auth.middleware.js";
 import { Role } from "../../generated/prisma/enums.js";
 import {
@@ -22,6 +23,7 @@ const router = Router();
 // refinement).
 router.use(
   authenticate,
+  tenantContext,
   requireRole(Role.OWNER, Role.MANAGER, Role.CHEF, Role.WAITER)
 );
 

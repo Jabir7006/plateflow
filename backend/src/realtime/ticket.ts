@@ -22,6 +22,7 @@ const TICKET_PURPOSE = "ws-ticket";
 
 export interface TicketPayload {
   userId: string;
+  restaurantId: string;
   role: Role;
 }
 
@@ -38,10 +39,15 @@ export function verifyWsTicket(ticket: string): TicketPayload {
     throw new jwt.JsonWebTokenError("Not a realtime ticket");
   }
 
-  const { userId, role } = decoded as Partial<TicketPayload>;
-  if (typeof userId !== "string" || typeof role !== "string") {
+  const { userId, restaurantId, role } = decoded as Partial<TicketPayload>;
+  if (
+    typeof userId !== "string" ||
+    typeof restaurantId !== "string" ||
+    !restaurantId ||
+    typeof role !== "string"
+  ) {
     throw new jwt.JsonWebTokenError("Realtime ticket payload is malformed");
   }
 
-  return { userId, role };
+  return { userId, restaurantId, role };
 }

@@ -39,15 +39,8 @@ async function main() {
       },
     });
 
-    if (owner.restaurantId !== null && owner.restaurantId !== restaurant.id) {
+    if (owner.restaurantId !== restaurant.id) {
       throw new Error("Seed owner email already belongs to another restaurant");
-    }
-
-    if (owner.restaurantId === null) {
-      await tx.user.updateMany({
-        where: { id: owner.id, restaurantId: null },
-        data: { restaurantId: restaurant.id },
-      });
     }
   });
 }

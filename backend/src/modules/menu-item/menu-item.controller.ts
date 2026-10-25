@@ -7,6 +7,7 @@ import type {
 import catchAsync from "../../utils/catchAsync.js";
 import { sendResponse } from "../../utils/ApiResponse.js";
 import { HTTP_STATUS } from "../../constants/http.js";
+import { requireTenant } from "../../middlewares/tenant.middleware.js";
 import {
   MENU_ITEM_IMAGE_FIELD,
   requireImageFile,
@@ -17,7 +18,7 @@ export const listMenuItems = catchAsync(async (req, res) => {
   // Already parsed by `validate(listMenuItemsSchema)`, which ignores unknown
   // query keys and treats an empty `categoryId` as "every category".
   const { categoryId } = req.query as ListMenuItemsSchema["query"];
-  const items = await menuItemService.list({ categoryId });
+  const items = await menuItemService.list(requireTenant(req), { categoryId });
   sendResponse(res, HTTP_STATUS.SUCCESS, items);
 });
 
@@ -25,20 +26,20 @@ export const createMenuItem = catchAsync(async (req, res) => {
   // Already parsed by `validate(createMenuItemSchema)`, which trims the text
   // fields and normalises the price to a number.
   const input = req.body as CreateMenuItemSchema["body"];
-  const item = await menuItemService.create(input);
+  const item = await menuItemService.create(requireTenant(req), input);
   sendResponse(res, HTTP_STATUS.CREATED, item, "Menu item created");
 });
 
 export const updateMenuItem = catchAsync(async (req, res) => {
   const { id } = req.params as UpdateMenuItemSchema["params"];
   const input = req.body as UpdateMenuItemSchema["body"];
-  const item = await menuItemService.update(id, input);
+  const item = await menuItemService.update(requireTenant(req), id, input);
   sendResponse(res, HTTP_STATUS.SUCCESS, item, "Menu item updated");
 });
 
 export const deleteMenuItem = catchAsync(async (req, res) => {
   const { id } = req.params as MenuItemIdSchema["params"];
-  await menuItemService.remove(id);
+  await menuItemService.remove(requireTenant(req), id);
   sendResponse(res, HTTP_STATUS.SUCCESS, null, "Menu item deleted");
 });
 
@@ -47,6 +48,7 @@ export const updateMenuItemImage = catchAsync(async (req, res) => {
   // The multipart body is already parsed by `menuItemImageUpload`, so this only
   // asserts that a file arrived with it.
   const item = await menuItemService.setImage(
+    requireTenant(req),
     id,
     requireImageFile(req, MENU_ITEM_IMAGE_FIELD)
   );
@@ -55,6 +57,6 @@ export const updateMenuItemImage = catchAsync(async (req, res) => {
 
 export const removeMenuItemImage = catchAsync(async (req, res) => {
   const { id } = req.params as MenuItemIdSchema["params"];
-  const item = await menuItemService.clearImage(id);
+  const item = await menuItemService.clearImage(requireTenant(req), id);
   sendResponse(res, HTTP_STATUS.SUCCESS, item, "Menu item image removed");
 });

@@ -12,6 +12,9 @@ const duplicateNameError = () =>
   ]);
 
 
+const notFoundError = () =>
+  new AppError("Menu category not found", HTTP_STATUS.NOT_FOUND);
+
 const withItemCount = {
   _count: { select: { items: true } },
 } as const;
@@ -29,8 +32,9 @@ const toMenuCategory = (category: CategoryWithCount): MenuCategory => ({
 });
 
 class MenuCategoryService {
-  async list(): Promise<MenuCategory[]> {
+  async list(restaurantId: string): Promise<MenuCategory[]> {
     const categories = await prisma.menuCategory.findMany({
+      where: { restaurantId },
       orderBy: { name: "asc" },
       include: withItemCount,
     });
@@ -38,12 +42,12 @@ class MenuCategoryService {
     return categories.map(toMenuCategory);
   }
 
-  async create(name: string): Promise<MenuCategory> {
-    await this.assertNameAvailable(name);
+  async create(restaurantId: string, name: string): Promise<MenuCategory> {
+    await this.assertNameAvailable(restaurantId, name);
 
     const created = await this.runUnique(() =>
       prisma.menuCategory.create({
-        data: { name },
+        data: { name, restaurantId },
         include: withItemCount,
       })
     );
@@ -51,13 +55,17 @@ class MenuCategoryService {
     return toMenuCategory(created);
   }
 
-  async update(id: string, name: string): Promise<MenuCategory> {
-    await this.assertExists(id);
-    await this.assertNameAvailable(name, id);
+  async update(
+    restaurantId: string,
+    id: string,
+    name: string
+  ): Promise<MenuCategory> {
+    await this.assertExists(restaurantId, id);
+    await this.assertNameAvailable(restaurantId, name, id);
 
     const updated = await this.runUnique(() =>
       prisma.menuCategory.update({
-        where: { id },
+        where: { id, restaurantId },
         data: { name },
         include: withItemCount,
       })
@@ -66,14 +74,14 @@ class MenuCategoryService {
     return toMenuCategory(updated);
   }
 
-  async remove(id: string): Promise<void> {
-    const category = await prisma.menuCategory.findUnique({
-      where: { id },
+  async remove(restaurantId: string, id: string): Promise<void> {
+    const category = await prisma.menuCategory.findFirst({
+      where: { id, restaurantId },
       include: withItemCount,
     });
 
     if (!category) {
-      throw new AppError("Menu category not found", HTTP_STATUS.NOT_FOUND);
+      throw notFoundError();
     }
 
     // MenuItem.categoryId is required, so deleting a category that still has
@@ -86,29 +94,34 @@ class MenuCategoryService {
       );
     }
 
-    await prisma.menuCategory.delete({ where: { id } });
+    const { count } = await prisma.menuCategory.deleteMany({
+      where: { id, restaurantId },
+    });
+    if (count === 0) throw notFoundError();
   }
 
-  private async assertExists(id: string): Promise<void> {
-    const existing = await prisma.menuCategory.findUnique({
-      where: { id },
+  private async assertExists(restaurantId: string, id: string): Promise<void> {
+    const existing = await prisma.menuCategory.findFirst({
+      where: { id, restaurantId },
       select: { id: true },
     });
 
     if (!existing) {
-      throw new AppError("Menu category not found", HTTP_STATUS.NOT_FOUND);
+      throw notFoundError();
     }
   }
 
-  // Case-insensitive so "Drinks" and "drinks" cannot both exist. `exceptId`
-  // lets an update keep its own name. The field-scoped error maps straight
-  // onto the name input on the client.
+  // Case-insensitive so "Drinks" and "drinks" cannot both exist in one
+  // restaurant. `exceptId` lets an update keep its own name. The field-scoped
+  // error maps straight onto the name input on the client.
   private async assertNameAvailable(
+    restaurantId: string,
     name: string,
     exceptId?: string
   ): Promise<void> {
     const clash = await prisma.menuCategory.findFirst({
       where: {
+        restaurantId,
         name: { equals: name, mode: "insensitive" },
         ...(exceptId ? { id: { not: exceptId } } : {}),
       },

@@ -88,11 +88,13 @@ class MenuItemService {
   // Unavailable items are included by default on purpose: staff have to see and
   // flip them. The diner menu passes `availableOnly` to get just what it may
   // show, so the availability rule lives here rather than being re-derived.
-  async list({ categoryId, availableOnly }: ListInput = {}): Promise<
-    MenuItem[]
-  > {
+  async list(
+    restaurantId: string,
+    { categoryId, availableOnly }: ListInput = {}
+  ): Promise<MenuItem[]> {
     const items = await prisma.menuItem.findMany({
       where: {
+        restaurantId,
         ...(categoryId ? { categoryId } : {}),
         ...(availableOnly ? { isAvailable: true } : {}),
       },
@@ -104,8 +106,8 @@ class MenuItemService {
     return items.map(toMenuItem);
   }
 
-  async create(input: CreateInput): Promise<MenuItem> {
-    await this.assertCategoryExists(input.categoryId);
+  async create(restaurantId: string, input: CreateInput): Promise<MenuItem> {
+    await this.assertCategoryExists(restaurantId, input.categoryId);
 
     const created = await this.runWrite(
       () =>
@@ -115,6 +117,7 @@ class MenuItemService {
             price: input.price,
             description: input.description,
             categoryId: input.categoryId,
+            restaurantId,
             // Absent means available, matching the column default.
             isAvailable: input.isAvailable ?? true,
             ...(input.sizes?.length
@@ -129,11 +132,15 @@ class MenuItemService {
     return toMenuItem(created);
   }
 
-  async update(id: string, input: UpdateInput): Promise<MenuItem> {
-    await this.assertExists(id);
+  async update(
+    restaurantId: string,
+    id: string,
+    input: UpdateInput
+  ): Promise<MenuItem> {
+    await this.assertExists(restaurantId, id);
 
     if (input.categoryId !== undefined) {
-      await this.assertCategoryExists(input.categoryId);
+      await this.assertCategoryExists(restaurantId, input.categoryId);
     }
 
     // Only the fields the caller actually sent are written, so flipping
@@ -163,7 +170,7 @@ class MenuItemService {
     const updated = await this.runWrite(
       () =>
         prisma.menuItem.update({
-          where: { id },
+          where: { id, restaurantId },
           data,
           include: itemInclude,
         }),
@@ -173,9 +180,13 @@ class MenuItemService {
     return toMenuItem(updated);
   }
 
-  async setImage(id: string, file: Buffer): Promise<MenuItem> {
+  async setImage(
+    restaurantId: string,
+    id: string,
+    file: Buffer
+  ): Promise<MenuItem> {
     // Read before uploading, so a wrong id does not cost a stored image.
-    const existing = await this.assertExists(id);
+    const existing = await this.assertExists(restaurantId, id);
 
     const updated = await replaceImage({
       target: {
@@ -187,7 +198,7 @@ class MenuItemService {
       previousPublicId: existing.imagePublicId,
       save: (image) =>
         prisma.menuItem.update({
-          where: { id },
+          where: { id, restaurantId },
           data: { imageUrl: image.url, imagePublicId: image.publicId },
           include: itemInclude,
         }),
@@ -197,15 +208,15 @@ class MenuItemService {
   }
 
   /** Removes the item's photo, if it has one. */
-  async clearImage(id: string): Promise<MenuItem> {
-    const existing = await this.assertExists(id);
+  async clearImage(restaurantId: string, id: string): Promise<MenuItem> {
+    const existing = await this.assertExists(restaurantId, id);
 
     // Written unconditionally: clearing an image that is already absent is the
     // outcome the caller asked for, so it answers with the item rather than 404.
     // The delete below removes the public id read before this write, so a replace
     // that lands in between is the accepted race setImage documents.
     const updated = await prisma.menuItem.update({
-      where: { id },
+      where: { id, restaurantId },
       data: { imageUrl: null, imagePublicId: null },
       include: itemInclude,
     });
@@ -217,9 +228,9 @@ class MenuItemService {
     return toMenuItem(updated);
   }
 
-  async remove(id: string): Promise<void> {
-    const item = await prisma.menuItem.findUnique({
-      where: { id },
+  async remove(restaurantId: string, id: string): Promise<void> {
+    const item = await prisma.menuItem.findFirst({
+      where: { id, restaurantId },
       select: {
         id: true,
         imagePublicId: true,
@@ -238,7 +249,7 @@ class MenuItemService {
     }
 
     await this.runWrite(
-      () => prisma.menuItem.delete({ where: { id } }),
+      () => prisma.menuItem.delete({ where: { id, restaurantId } }),
       orderedItemError
     );
 
@@ -255,10 +266,11 @@ class MenuItemService {
   // The public id comes back with the check, so the image routes need no
   // second read of the row.
   private async assertExists(
+    restaurantId: string,
     id: string
   ): Promise<{ imagePublicId: string | null }> {
-    const existing = await prisma.menuItem.findUnique({
-      where: { id },
+    const existing = await prisma.menuItem.findFirst({
+      where: { id, restaurantId },
       select: { id: true, imagePublicId: true },
     });
 
@@ -269,9 +281,14 @@ class MenuItemService {
     return existing;
   }
 
-  private async assertCategoryExists(categoryId: string): Promise<void> {
-    const category = await prisma.menuCategory.findUnique({
-      where: { id: categoryId },
+  // The category must belong to the caller's restaurant too, or an item could be
+  // filed under another restaurant's category (and surface on its menu).
+  private async assertCategoryExists(
+    restaurantId: string,
+    categoryId: string
+  ): Promise<void> {
+    const category = await prisma.menuCategory.findFirst({
+      where: { id: categoryId, restaurantId },
       select: { id: true },
     });
 

@@ -7,6 +7,7 @@ import {
 } from "@plateflow/shared";
 import validate from "../../middlewares/validate.middleware.js";
 import { menuItemImageUpload } from "../../middlewares/upload.middleware.js";
+import { tenantContext } from "../../middlewares/tenant.middleware.js";
 import { authenticate, requireRole } from "../auth/auth.middleware.js";
 import { Role } from "../../generated/prisma/enums.js";
 import {
@@ -20,15 +21,23 @@ import {
 
 const router = Router();
 
-// Public: a customer who scans a table's QR code reads the menu without any
-// account. The payload is shaped for that audience — no storage id, nothing
-// internal — and availability is included so the customer menu can filter on
-// it. Writing the menu is staff-only and gated below.
-router.get("/items", validate(listMenuItemsSchema), listMenuItems);
+// Staff-only. This used to be public because one deployment meant one menu; with
+// several restaurants in one database an unscoped public list would show every
+// restaurant's items. A diner reads the menu through their table's token
+// (GET /t/:token), which resolves the tenant from the QR code.
+router.get(
+  "/items",
+  authenticate,
+  tenantContext,
+  requireRole(Role.OWNER, Role.MANAGER, Role.CHEF, Role.WAITER),
+  validate(listMenuItemsSchema),
+  listMenuItems
+);
 
 router.post(
   "/items",
   authenticate,
+  tenantContext,
   requireRole(Role.OWNER, Role.MANAGER),
   validate(createMenuItemSchema),
   createMenuItem
@@ -40,6 +49,7 @@ router.post(
 router.patch(
   "/items/:id",
   authenticate,
+  tenantContext,
   requireRole(Role.OWNER, Role.MANAGER),
   validate(updateMenuItemSchema),
   updateMenuItem
@@ -48,6 +58,7 @@ router.patch(
 router.delete(
   "/items/:id",
   authenticate,
+  tenantContext,
   requireRole(Role.OWNER, Role.MANAGER),
   validate(menuItemIdSchema),
   deleteMenuItem
@@ -60,6 +71,7 @@ router.delete(
 router.put(
   "/items/:id/image",
   authenticate,
+  tenantContext,
   requireRole(Role.OWNER, Role.MANAGER),
   menuItemImageUpload,
   validate(menuItemIdSchema),
@@ -69,6 +81,7 @@ router.put(
 router.delete(
   "/items/:id/image",
   authenticate,
+  tenantContext,
   requireRole(Role.OWNER, Role.MANAGER),
   validate(menuItemIdSchema),
   removeMenuItemImage

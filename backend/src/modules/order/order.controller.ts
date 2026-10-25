@@ -8,6 +8,7 @@ import type {
   PlaceOrderSchema,
   UpdateOrderStatusSchema,
 } from "@plateflow/shared";
+import { requireTenant } from "../../middlewares/tenant.middleware.js";
 import orderService from "./order.service.js";
 
 export const placeOrder = catchAsync(async (req, res) => {
@@ -24,8 +25,8 @@ export const getOrderStatus = catchAsync(async (req, res) => {
 });
 
 // Staff surface — the authenticated live board and its status control.
-export const listOrders = catchAsync(async (_req, res) => {
-  const orders = await orderService.listActiveOrders();
+export const listOrders = catchAsync(async (req, res) => {
+  const orders = await orderService.listActiveOrders(requireTenant(req));
   sendResponse(res, HTTP_STATUS.SUCCESS, orders);
 });
 
@@ -33,19 +34,23 @@ export const listOrderHistory = catchAsync(async (req, res) => {
   // validate() has already coerced page/pageSize to numbers, so the parsed shape
   // no longer overlaps Express's all-string ParsedQs — cast through unknown.
   const query = req.query as unknown as OrderHistoryQuerySchema["query"];
-  const result = await orderService.listOrderHistory(query);
+  const result = await orderService.listOrderHistory(requireTenant(req), query);
   sendResponse(res, HTTP_STATUS.SUCCESS, result);
 });
 
 export const getOrderStats = catchAsync(async (req, res) => {
   const query = req.query as OrderStatsQuerySchema["query"];
-  const stats = await orderService.getOrderStats(query);
+  const stats = await orderService.getOrderStats(requireTenant(req), query);
   sendResponse(res, HTTP_STATUS.SUCCESS, stats);
 });
 
 export const updateOrderStatus = catchAsync(async (req, res) => {
   const { orderId } = req.params as UpdateOrderStatusSchema["params"];
   const { status } = req.body as UpdateOrderStatusSchema["body"];
-  const order = await orderService.updateOrderStatus(orderId, status);
+  const order = await orderService.updateOrderStatus(
+    requireTenant(req),
+    orderId,
+    status
+  );
   sendResponse(res, HTTP_STATUS.SUCCESS, order, "Order updated");
 });

@@ -18,15 +18,15 @@ export type UpdateItemInput = UpdateMenuItemSchema["body"]
 // MENU_ITEM_IMAGE_FIELD).
 const IMAGE_FIELD = "image"
 
-// Public read: the same list the customer menu is built from, so it carries no
-// mutation and needs no role.
+// Staff read: scoped server-side to the signed-in restaurant, so it needs a
+// session (any staff role) but no extra parameters.
 export function listMenuCategories(): Promise<MenuCategory[]> {
   return apiRequest<MenuCategory[]>("/menu/categories")
 }
 
-// Public read too. The backend already sorts by category then name, so the
-// order it returns is the order the menu renders in. An absent categoryId
-// means every category.
+// Same scoping. The backend already sorts by category then name, so the order
+// it returns is the order the menu renders in. An absent categoryId means every
+// category in this restaurant.
 export function listMenuItems(categoryId?: string): Promise<MenuItem[]> {
   const query = categoryId
     ? `?categoryId=${encodeURIComponent(categoryId)}`

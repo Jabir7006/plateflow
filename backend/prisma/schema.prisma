@@ -7,7 +7,6 @@ datasource db {
   provider = "postgresql"
 }
 
-// Tenant relations stay nullable until all create paths supply restaurantId.
 model Restaurant {
   id        String   @id @default(cuid())
   name      String
@@ -31,8 +30,8 @@ model User {
   role               Role
   status             UserStatus          @default(INVITED)
   createdAt          DateTime            @default(now())
-  restaurantId       String?
-  restaurant         Restaurant?         @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  restaurantId       String
+  restaurant         Restaurant          @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
   verificationTokens VerificationToken[]
   refreshTokens      RefreshToken[]
 
@@ -51,8 +50,8 @@ model MenuItem {
   isAvailable   Boolean        @default(true)
   categoryId    String
   category      MenuCategory   @relation(fields: [categoryId], references: [id])
-  restaurantId  String?
-  restaurant    Restaurant?    @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  restaurantId  String
+  restaurant    Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
   sizes         MenuItemSize[]
   orderItems    OrderItem[]
 
@@ -76,8 +75,8 @@ model Table {
   // The QR token is the only tenant anchor on the public diner path, so it must
   // resolve to one table with no prior restaurant context: globally unique.
   qrCode       String      @unique
-  restaurantId String?
-  restaurant   Restaurant? @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  restaurantId String
+  restaurant   Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
   orders       Order[]
 
   // Table numbers are per-restaurant: two restaurants can both have a "Table 1".
@@ -87,8 +86,8 @@ model Table {
 model MenuCategory {
   id           String      @id @default(cuid())
   name         String
-  restaurantId String?
-  restaurant   Restaurant? @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  restaurantId String
+  restaurant   Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
   items        MenuItem[]
 
   // Category names are unique within a restaurant, not across the platform.
@@ -99,8 +98,8 @@ model Order {
   id           String      @id @default(cuid())
   tableId      String
   table        Table       @relation(fields: [tableId], references: [id])
-  restaurantId String?
-  restaurant   Restaurant? @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  restaurantId String
+  restaurant   Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
   status       OrderStatus @default(PENDING)
   total        Decimal     @db.Decimal(10, 2)
   note         String?

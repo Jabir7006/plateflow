@@ -1,5 +1,6 @@
 import type { InviteSchema, InvitedStaff, Role } from "@plateflow/shared";
 import { prisma } from "../../lib/prisma.js";
+import { Prisma } from "../../generated/prisma/client.js";
 import {
   TokenType,
   UserStatus as PrismaUserStatus,
@@ -16,6 +17,7 @@ type InviteInput = InviteSchema["body"];
 
 class StaffService {
   async invite(
+    restaurantId: string,
     { fullName, email, role }: InviteInput,
     actorRole: Role
   ): Promise<InvitedStaff> {
@@ -24,7 +26,22 @@ class StaffService {
     // existing manager as a waiter and demote them that way.
     this.assertMayManage(actorRole, role);
 
-    const existing = await prisma.user.findUnique({ where: { email } });
+    // Email is globally unique (one person, one account), so this lookup can
+    // return a user from another restaurant. That account is not ours to touch:
+    // re-roling or re-inviting it would let one restaurant seize another's staff
+    // member. The response is the same generic conflict either way, so it does
+    // not disclose which restaurant the address belongs to.
+    const existing = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true, role: true, status: true, restaurantId: true },
+    });
+
+    if (existing && existing.restaurantId !== restaurantId) {
+      throw new AppError(
+        "This email is already in use",
+        HTTP_STATUS.CONFLICT
+      );
+    }
 
     if (existing) {
       this.assertMayManage(actorRole, existing.role);
@@ -54,16 +71,35 @@ class StaffService {
     // loser is rejected by the unique index on `email` and reported as a 409.
     const { user, tokenId } = await prisma.$transaction(async (tx) => {
       const user = existing
-        ? await tx.user.update({
-            where: { id: existing.id },
-            data: { fullName, role },
-          })
+        ? await tx.user
+            // The tenant rides the write itself. Checking ownership above and
+            // then writing by id alone would leave a window in which the account
+            // is reassigned to another restaurant and still gets edited here.
+            .update({
+              where: { id: existing.id, restaurantId },
+              data: { fullName, role },
+            })
+            .catch((error: unknown) => {
+              // No row matched the id *and* the tenant: the account moved (or
+              // vanished) since the lookup. Same generic conflict as above.
+              if (
+                error instanceof Prisma.PrismaClientKnownRequestError &&
+                error.code === "P2025"
+              ) {
+                throw new AppError(
+                  "This email is already in use",
+                  HTTP_STATUS.CONFLICT
+                );
+              }
+              throw error;
+            })
         : await tx.user.create({
             data: {
               fullName,
               email,
               role,
               status: PrismaUserStatus.INVITED,
+              restaurantId,
             },
           });
 
@@ -97,7 +133,7 @@ class StaffService {
     } catch (error) {
       // Better to report "nothing happened" than to leave an account marked
       // invited whose invitation nobody received.
-      await this.discardInvite(user.id, tokenId, isNewUser);
+      await this.discardInvite(restaurantId, user.id, tokenId, isNewUser);
       throw error;
     }
 
@@ -144,14 +180,16 @@ class StaffService {
   // Best effort: the invite has already failed, and a rollback failure must not
   // replace the error the caller needs to see.
   private async discardInvite(
+    restaurantId: string,
     userId: string,
     tokenId: string,
     isNewUser: boolean
   ): Promise<void> {
     try {
       if (isNewUser) {
-        // Cascades to the token row.
-        await prisma.user.delete({ where: { id: userId } });
+        // Cascades to the token row. Scoped by restaurant so a rollback can only
+        // ever remove the account this invite created.
+        await prisma.user.deleteMany({ where: { id: userId, restaurantId } });
         return;
       }
 

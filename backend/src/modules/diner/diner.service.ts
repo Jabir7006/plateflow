@@ -12,9 +12,11 @@ class DinerService {
   async getTableMenu(token: string): Promise<TableMenu> {
     const table = await prisma.table.findUnique({
       where: { qrCode: token }, // qrCode is @unique, so this is indexed.
-      select: { number: true },
+      select: { number: true, restaurantId: true },
     });
 
+    // An unknown code 404s rather than falling back to any menu: the token is the
+    // only tenant anchor on this public path.
     if (!table) {
       throw new AppError(
         "This code isn't valid. Ask a member of staff for help.",
@@ -23,8 +25,11 @@ class DinerService {
     }
 
     // The availability filter lives in the menu service so staff and diner
-    // views share one query and one shape.
-    const items = await menuItemService.list({ availableOnly: true });
+    // views share one query and one shape. The token's restaurant is the tenant,
+    // so a diner only ever sees the menu of the restaurant they are sitting in.
+    const items = await menuItemService.list(table.restaurantId, {
+      availableOnly: true,
+    });
 
     return { table: { number: table.number }, items };
   }

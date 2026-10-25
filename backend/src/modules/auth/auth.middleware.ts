@@ -15,6 +15,14 @@ export const authenticate = catchAsync(async (req, _res, next) => {
 
   try {
     const decoded = verifyToken(token) as accessTokenPayload;
+
+    // Tokens minted before tenant support carry no restaurant. Treating one as
+    // authenticated would let a request reach a scoped service with no tenant,
+    // so it is rejected like any other invalid token and the client re-logs in.
+    if (typeof decoded.restaurantId !== "string" || !decoded.restaurantId) {
+      throw new Error("Token has no tenant");
+    }
+
     req.user = decoded;
     return next();
   } catch {

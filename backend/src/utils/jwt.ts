@@ -13,6 +13,11 @@ export type refreshTokenPayload = {
 
 export type accessTokenPayload = {
   userId: User["id"];
+  // The tenant this session belongs to. Every staff request is scoped by it, so
+  // it is signed into the token rather than looked up per request. It is a
+  // plain string (not User["restaurantId"], which is nullable): a session can
+  // only be issued for a user that belongs to a restaurant.
+  restaurantId: string;
   role: User["role"];
   status: User["status"];
 };

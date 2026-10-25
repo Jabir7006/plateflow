@@ -103,9 +103,12 @@ const STATUS_PREDECESSORS: Partial<Record<OrderStatus, OrderStatus[]>> = {
   ],
 };
 
-const loadStaffView = async (orderId: string): Promise<StaffOrderView> => {
-  const order = await prisma.order.findUnique({
-    where: { id: orderId },
+const loadStaffView = async (
+  restaurantId: string,
+  orderId: string
+): Promise<StaffOrderView> => {
+  const order = await prisma.order.findFirst({
+    where: { id: orderId, restaurantId },
     include: orderItemInclude,
   });
   if (!order) {
@@ -131,17 +134,22 @@ class OrderService {
   async placeOrder(token: string, input: PlaceOrderInput): Promise<PlacedOrder> {
     const table = await prisma.table.findUnique({
       where: { qrCode: token },
-      select: { id: true },
+      select: { id: true, restaurantId: true },
     });
 
     if (!table) {
       throw unknownTokenError();
     }
 
+    // The diner's tenant is the table's restaurant — never anything the client
+    // sends. Every item below must belong to this same restaurant, so a diner
+    // cannot order another restaurant's item by guessing its id.
+    const restaurantId = table.restaurantId;
+
     // One query for every referenced item + its sizes, rather than one per line.
     const ids = [...new Set(input.items.map((line) => line.menuItemId))];
     const items = await prisma.menuItem.findMany({
-      where: { id: { in: ids } },
+      where: { id: { in: ids }, restaurantId },
       include: { sizes: true },
     });
     const itemsById = new Map(items.map((item) => [item.id, item]));
@@ -192,6 +200,7 @@ class OrderService {
     const order = await prisma.order.create({
       data: {
         tableId: table.id,
+        restaurantId,
         total,
         note: input.note ?? null,
         items: { create: lines },
@@ -201,7 +210,7 @@ class OrderService {
 
     // Push it to the staff board so a new order lands there instantly. The diner
     // only needs the id back — the capability to watch this order.
-    emitOrderNew(toStatusView(order));
+    emitOrderNew(restaurantId, toStatusView(order));
 
     return { id: order.id };
   }
@@ -222,10 +231,12 @@ class OrderService {
   }
 
   // The live kitchen board: every order still in play (not served or cancelled),
-  // oldest first so staff work the queue front-to-back.
-  async listActiveOrders(): Promise<StaffOrderView[]> {
+  // oldest first so staff work the queue front-to-back. Scoped to the caller's
+  // restaurant.
+  async listActiveOrders(restaurantId: string): Promise<StaffOrderView[]> {
     const orders = await prisma.order.findMany({
       where: {
+        restaurantId,
         status: { notIn: [OrderStatus.SERVED, OrderStatus.CANCELLED] },
       },
       include: orderItemInclude,
@@ -239,12 +250,14 @@ class OrderService {
   // paged and filterable by status and date range. The board shows only active
   // orders; served and cancelled ones live on here.
   async listOrderHistory(
+    restaurantId: string,
     query: OrderHistoryQuerySchema["query"]
   ): Promise<OrderHistoryResult> {
     const { page, pageSize, status, from, to } = query;
 
     const createdAt = createdAtRange(from, to);
     const where: Prisma.OrderWhereInput = {
+      restaurantId,
       ...(status ? { status } : {}),
       ...(createdAt ? { createdAt } : {}),
     };
@@ -287,11 +300,17 @@ class OrderService {
   // A basic sales summary for a date range (all time when unbounded), windowed by
   // order placement time: a per-status breakdown plus revenue from the orders in
   // that window that reached SERVED. One grouped query does it.
-  async getOrderStats(query: OrderStatsQuerySchema["query"]): Promise<OrderStats> {
+  async getOrderStats(
+    restaurantId: string,
+    query: OrderStatsQuerySchema["query"]
+  ): Promise<OrderStats> {
     const { from, to } = query;
 
     const createdAt = createdAtRange(from, to);
-    const where: Prisma.OrderWhereInput = createdAt ? { createdAt } : {};
+    const where: Prisma.OrderWhereInput = {
+      restaurantId,
+      ...(createdAt ? { createdAt } : {}),
+    };
 
     const groups = await prisma.order.groupBy({
       by: ["status"],
@@ -323,6 +342,7 @@ class OrderService {
   // guard rides the write itself (updateMany filtered on the allowed previous
   // statuses) so two staff acting on the same order at once can't both apply.
   async updateOrderStatus(
+    restaurantId: string,
     orderId: string,
     status: OrderStatus
   ): Promise<StaffOrderView> {
@@ -330,37 +350,40 @@ class OrderService {
 
     // No predecessors means `status` is PENDING — the start state, never a
     // target. Report it against the order's real state (idempotent if it somehow
-    // already sits there, otherwise a plain conflict).
+    // already sits there, otherwise a plain conflict). The read is tenant-scoped,
+    // so another restaurant's order reads as "not found".
     if (!predecessors) {
-      const current = await prisma.order.findUnique({
-        where: { id: orderId },
+      const current = await prisma.order.findFirst({
+        where: { id: orderId, restaurantId },
         select: { status: true },
       });
       if (!current) throw orderNotFoundError();
-      if (current.status === status) return loadStaffView(orderId);
+      if (current.status === status)
+        return loadStaffView(restaurantId, orderId);
       throw transitionError(current.status, status);
     }
 
     const result = await prisma.order.updateMany({
-      where: { id: orderId, status: { in: predecessors } },
+      where: { id: orderId, restaurantId, status: { in: predecessors } },
       data: { status },
     });
 
-    // Nothing moved: the order is gone, already in this status (a double-tap —
-    // treat as success), or in a state this step isn't legal from. One read tells
-    // the three apart.
+    // Nothing moved: the order is gone, belongs to another restaurant, already
+    // in this status (a double-tap — treat as success), or in a state this step
+    // isn't legal from. One scoped read tells the first three apart.
     if (result.count === 0) {
-      const current = await prisma.order.findUnique({
-        where: { id: orderId },
+      const current = await prisma.order.findFirst({
+        where: { id: orderId, restaurantId },
         select: { status: true },
       });
       if (!current) throw orderNotFoundError();
-      if (current.status === status) return loadStaffView(orderId);
+      if (current.status === status)
+        return loadStaffView(restaurantId, orderId);
       throw transitionError(current.status, status);
     }
 
-    const view = await loadStaffView(orderId);
-    emitOrderUpdated(view);
+    const view = await loadStaffView(restaurantId, orderId);
+    emitOrderUpdated(restaurantId, view);
     return view;
   }
 }

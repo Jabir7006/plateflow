@@ -30,9 +30,13 @@ const toTable = (table: TableWithCount): Table => ({
   orderCount: table._count.orders,
 });
 
+const notFoundError = () =>
+  new AppError("Table not found", HTTP_STATUS.NOT_FOUND);
+
 class TableService {
-  async list(): Promise<Table[]> {
+  async list(restaurantId: string): Promise<Table[]> {
     const tables = await prisma.table.findMany({
+      where: { restaurantId },
       orderBy: { number: "asc" },
       include: withOrderCount,
     });
@@ -40,14 +44,14 @@ class TableService {
     return tables.map(toTable);
   }
 
-  async create(number: number): Promise<Table> {
-    await this.assertNumberAvailable(number);
+  async create(restaurantId: string, number: number): Promise<Table> {
+    await this.assertNumberAvailable(restaurantId, number);
 
     const created = await this.runUnique(() =>
       prisma.table.create({
         // The QR token is a high-entropy value the printed code encodes; it is
         // generated here and never supplied by the client.
-        data: { number, qrCode: randomId() },
+        data: { number, qrCode: randomId(), restaurantId },
         include: withOrderCount,
       })
     );
@@ -55,17 +59,20 @@ class TableService {
     return toTable(created);
   }
 
-  async update(id: string, number: number): Promise<Table> {
-    await this.assertExists(id);
-    await this.assertNumberAvailable(number, id);
+  async update(restaurantId: string, id: string, number: number): Promise<Table> {
+    await this.assertExists(restaurantId, id);
+    await this.assertNumberAvailable(restaurantId, number, id);
 
-    const updated = await this.runUnique(() =>
-      prisma.table.update({
-        where: { id },
+    // updateMany rather than update: the tenant rides the write itself, so a row
+    // deleted or reassigned between the checks above can't be touched.
+    const updated = await this.runUnique(async () => {
+      const { count } = await prisma.table.updateMany({
+        where: { id, restaurantId },
         data: { number },
-        include: withOrderCount,
-      })
-    );
+      });
+      if (count === 0) throw notFoundError();
+      return this.loadWithCount(restaurantId, id);
+    });
 
     return toTable(updated);
   }
@@ -74,28 +81,29 @@ class TableService {
   // makes every existing sticker for this table dead, so it is a deliberate,
   // confirmed action on the client. A physically damaged (but uncompromised)
   // sticker should be reprinted from the same token instead, not regenerated.
-  async regenerateQr(id: string): Promise<Table> {
-    await this.assertExists(id);
+  async regenerateQr(restaurantId: string, id: string): Promise<Table> {
+    await this.assertExists(restaurantId, id);
 
-    const updated = await this.runUnique(() =>
-      prisma.table.update({
-        where: { id },
+    const updated = await this.runUnique(async () => {
+      const { count } = await prisma.table.updateMany({
+        where: { id, restaurantId },
         data: { qrCode: randomId() },
-        include: withOrderCount,
-      })
-    );
+      });
+      if (count === 0) throw notFoundError();
+      return this.loadWithCount(restaurantId, id);
+    });
 
     return toTable(updated);
   }
 
-  async remove(id: string): Promise<void> {
-    const table = await prisma.table.findUnique({
-      where: { id },
+  async remove(restaurantId: string, id: string): Promise<void> {
+    const table = await prisma.table.findFirst({
+      where: { id, restaurantId },
       include: withOrderCount,
     });
 
     if (!table) {
-      throw new AppError("Table not found", HTTP_STATUS.NOT_FOUND);
+      throw notFoundError();
     }
 
     // Order.tableId references this row with ON DELETE RESTRICT, so deleting a
@@ -108,29 +116,47 @@ class TableService {
       );
     }
 
-    await prisma.table.delete({ where: { id } });
+    const { count } = await prisma.table.deleteMany({
+      where: { id, restaurantId },
+    });
+    if (count === 0) throw notFoundError();
   }
 
-  private async assertExists(id: string): Promise<void> {
-    const existing = await prisma.table.findUnique({
-      where: { id },
+  // Re-read after a scoped write: updateMany returns only a count, and the
+  // response needs the order count too.
+  private async loadWithCount(
+    restaurantId: string,
+    id: string
+  ): Promise<TableWithCount> {
+    const table = await prisma.table.findFirst({
+      where: { id, restaurantId },
+      include: withOrderCount,
+    });
+    if (!table) throw notFoundError();
+    return table;
+  }
+
+  private async assertExists(restaurantId: string, id: string): Promise<void> {
+    const existing = await prisma.table.findFirst({
+      where: { id, restaurantId },
       select: { id: true },
     });
 
     if (!existing) {
-      throw new AppError("Table not found", HTTP_STATUS.NOT_FOUND);
+      throw notFoundError();
     }
   }
 
-  // `exceptId` lets an update keep its own number. The field-scoped error maps
-  // straight onto the number input on the client. Scoping this to a tenant later
-  // is a single added `where` clause.
+  // `exceptId` lets an update keep its own number. Numbers are unique per
+  // restaurant, so this only looks within the caller's tenant.
   private async assertNumberAvailable(
+    restaurantId: string,
     number: number,
     exceptId?: string
   ): Promise<void> {
     const clash = await prisma.table.findFirst({
       where: {
+        restaurantId,
         number,
         ...(exceptId ? { id: { not: exceptId } } : {}),
       },

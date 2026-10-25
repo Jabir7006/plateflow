@@ -22,7 +22,10 @@ import { verifyWsTicket } from "./ticket.js";
 // event bus. Scaling to multiple instances later means adding the socket.io
 // Redis adapter here; nothing else changes.
 
-const STAFF_ROOM = "staff";
+// Staff are split into one room per restaurant. A global staff room would fan
+// every restaurant's orders out to every other restaurant's board, so the room
+// name is the tenant boundary.
+const staffRoom = (restaurantId: string) => `staff:${restaurantId}`;
 const orderRoom = (orderId: string) => `order:${orderId}`;
 
 // Set on the socket during the handshake so the connection handler knows which
@@ -30,6 +33,7 @@ const orderRoom = (orderId: string) => `order:${orderId}`;
 interface SocketData {
   kind?: "staff" | "diner";
   userId?: string;
+  restaurantId?: string;
   role?: Role;
   orderId?: string;
 }
@@ -59,9 +63,10 @@ async function authenticateSocket(socket: IoSocket): Promise<boolean> {
   const ticket = auth.ticket;
   if (typeof ticket === "string") {
     try {
-      const { userId, role } = verifyWsTicket(ticket);
+      const { userId, restaurantId, role } = verifyWsTicket(ticket);
       socket.data.kind = "staff";
       socket.data.userId = userId;
+      socket.data.restaurantId = restaurantId;
       socket.data.role = role;
       return true;
     } catch {
@@ -107,9 +112,9 @@ export function initRealtime(httpServer: HttpServer): IoServer {
   });
 
   server.on("connection", (socket) => {
-    const { kind, orderId } = socket.data;
-    if (kind === "staff") {
-      void socket.join(STAFF_ROOM);
+    const { kind, restaurantId, orderId } = socket.data;
+    if (kind === "staff" && typeof restaurantId === "string") {
+      void socket.join(staffRoom(restaurantId));
     } else if (kind === "diner" && typeof orderId === "string") {
       void socket.join(orderRoom(orderId));
     }
@@ -119,25 +124,34 @@ export function initRealtime(httpServer: HttpServer): IoServer {
   return server;
 }
 
-// A diner placed an order — tell the staff board so it appears with no refetch.
-// The broadcast is a side effect of an already-committed write, so it must never
-// throw back into the caller; a failed fan-out is logged, not propagated.
-export function emitOrderNew(order: StaffOrderView): void {
+// A diner placed an order — tell that restaurant's staff board so it appears
+// with no refetch. The broadcast is a side effect of an already-committed write,
+// so it must never throw back into the caller; a failed fan-out is logged, not
+// propagated. The target room is the order's own restaurant, so one restaurant's
+// board never sees another's orders.
+export function emitOrderNew(
+  restaurantId: string,
+  order: StaffOrderView
+): void {
   if (!io) return;
   const payload: OrderEventPayload = { order };
   try {
-    io.to(STAFF_ROOM).emit(ORDER_EVENTS.new, payload);
+    io.to(staffRoom(restaurantId)).emit(ORDER_EVENTS.new, payload);
   } catch (err) {
     console.error("emitOrderNew failed", err);
   }
 }
 
-// An order's status changed — tell the staff board and that order's diner.
-export function emitOrderUpdated(order: OrderStatusView): void {
+// An order's status changed — tell that restaurant's staff board and that
+// order's diner.
+export function emitOrderUpdated(
+  restaurantId: string,
+  order: OrderStatusView
+): void {
   if (!io) return;
   const payload: OrderEventPayload = { order };
   try {
-    io.to(STAFF_ROOM).emit(ORDER_EVENTS.updated, payload);
+    io.to(staffRoom(restaurantId)).emit(ORDER_EVENTS.updated, payload);
     io.to(orderRoom(order.id)).emit(ORDER_EVENTS.updated, payload);
   } catch (err) {
     console.error("emitOrderUpdated failed", err);
