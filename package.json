@@ -14,6 +14,9 @@
     "db:generate": "pnpm --filter backend db:generate",
     "db:studio": "pnpm --filter backend db:studio",
     "db:push": "pnpm --filter backend db:push",
+    "test": "pnpm --filter backend test",
+    "test:unit": "pnpm --filter backend test:unit",
+    "test:integration": "pnpm --filter backend test:integration",
     "prepare": "husky && pnpm --filter @plateflow/shared build",
     "commit": "commitlint"
   },
