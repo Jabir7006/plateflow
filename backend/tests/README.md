@@ -24,9 +24,30 @@ where a regression is silent or security-relevant:
 - Error mapping (AppError, Zod, JWT, malformed JSON, unknown errors)
 - Shared request schemas: auth, menu/prices/sizes, tables, orders/history ranges
 - Staff-invite email escaping and copy
+- Image storage (`lib/image-storage.test.ts`) — Cloudinary mocked: upload success/failure,
+  best-effort delete, replace ordering and rollback
+- Upload middleware (`middlewares/upload.test.ts`) — real multipart requests through Multer:
+  accepted MIME types, wrong MIME/field, the 5MB limit, missing file, returned bytes
+- **Tenant-scope guard** — a static AST check that every Prisma call on a
+  tenant-owned model (`User`, `MenuItem`, `MenuCategory`, `Table`, `Order`)
+  proves its `restaurantId` in `where`/`data`. It also follows local `where`
+  variables, `AND`/`OR` nesting, the `table.qrCode` diner anchor, `$transaction`
+  client aliases, and fails closed on raw SQL or unknown models/methods. Child
+  models (`OrderItem`, `MenuItemSize`) must prove their parent's tenant, and an
+  update may not re-parent a row.
 
 `tests/setup.unit.ts` pins `NODE_ENV=test` and supplies dummy values for every
 environment variable a module reads at import time, so the suite runs anywhere.
+
+### Tenant-scope guard
+
+`tests/unit/lib/tenant-scope.ts` holds the analyzer and a small allowlist of
+**intentionally global** reads (login by email, session restore by token id,
+invite acceptance, the cross-tenant invite check). Each entry carries a
+`reason` and a pinned call shape (file + function + model + method + `where`
+keys), so a new or reshaped query cannot silently inherit the exception. An
+entry that stops matching fails the suite as stale. Use the allowlist only when
+a read is genuinely global by design — never to silence a missing tenant filter.
 
 ## Integration suite (`tests/integration`)
 
@@ -47,9 +68,12 @@ API, and deletes exactly what it created.
   single-use links, role hierarchy, rollback when mail fails
 - `realtime.test.ts` — ticket claims, handshake rejection, staff fan-out,
   diner order ownership
+- `real-user-journey.test.ts` — one restaurant's whole day through the public API
+  and real sockets: login, menu/table setup, QR menu, order + live status,
+  board/history/stats, waiter invite/acceptance, and a second tenant's isolation
 
-Mail is mocked in the invite suite. Everything else hits the real database and
-HTTP server.
+Mail is mocked in the invite and journey suites. Image hosting is mocked in the
+unit image tests. Everything else hits the real database and HTTP server.
 
 ## Running against a disposable database
 

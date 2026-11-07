@@ -289,6 +289,24 @@ export function newSocket(
   return socket;
 }
 
+/** Resolves with the next payload for `event`; rejects on timeout. */
+export function nextEvent<T>(
+  socket: Socket,
+  event: string,
+  timeoutMs = 15_000
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`timed out waiting for ${event}`)),
+      timeoutMs
+    );
+    socket.once(event, (payload: T) => {
+      clearTimeout(timer);
+      resolve(payload);
+    });
+  });
+}
+
 export function waitForConnect(socket: Socket, timeoutMs = 15_000): Promise<void> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(

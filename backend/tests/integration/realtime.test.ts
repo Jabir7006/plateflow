@@ -1,5 +1,4 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { Socket } from "socket.io-client";
 import {
   ORDER_EVENTS,
   SOCKET_AUTH_ERROR,
@@ -12,6 +11,7 @@ import {
   disconnectSockets,
   login,
   newSocket,
+  nextEvent,
   provisionRestaurant,
   removeFixtures,
   removeIssuedRefreshTokens,
@@ -49,19 +49,6 @@ async function placeOrder(qrCode: string) {
     expect: 201,
   });
   return body.data.id as string;
-}
-
-function nextEvent<T>(socket: Socket, event: string, timeoutMs = 10_000): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(
-      () => reject(new Error(`timed out waiting for ${event}`)),
-      timeoutMs
-    );
-    socket.once(event, (payload: T) => {
-      clearTimeout(timer);
-      resolve(payload);
-    });
-  });
 }
 
 beforeAll(async () => {
