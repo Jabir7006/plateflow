@@ -25,6 +25,10 @@ interface SidebarUserProps {
 // Sidebar footer: the signed-in staff member. The whole row opens a menu so
 // logging out stays reachable without a dedicated header button. In the
 // collapsed rail only the avatar remains, labeled by a tooltip.
+//
+// The restaurant name leads the row on purpose: one person can hold accounts at
+// different restaurants, so the active tenant must be visible next to the
+// identity that is signed in — not just the person's name.
 export function SidebarUser({ collapsed = false }: SidebarUserProps) {
   const user = useAuthStore((state) => state.user)
   const logout = useLogout()
@@ -47,10 +51,11 @@ export function SidebarUser({ collapsed = false }: SidebarUserProps) {
           {collapsed ? null : (
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-medium">
-                {user.fullName}
+                {user.restaurant.name}
               </span>
-              <span className="block truncate text-xs text-muted-foreground capitalize">
-                {user.role.toLowerCase()}
+              <span className="block truncate text-xs text-muted-foreground">
+                {user.fullName} ·{" "}
+                <span className="capitalize">{user.role.toLowerCase()}</span>
               </span>
             </span>
           )}
@@ -65,7 +70,7 @@ export function SidebarUser({ collapsed = false }: SidebarUserProps) {
         <Tooltip>
           <TooltipTrigger render={trigger} />
           <TooltipContent side="right">
-            {user.fullName} · {user.role.toLowerCase()}
+            {user.restaurant.name} · {user.fullName} · {user.role.toLowerCase()}
           </TooltipContent>
         </Tooltip>
       ) : (
