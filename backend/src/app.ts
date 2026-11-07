@@ -5,6 +5,7 @@ import {
   errorHandler,
   notFoundHandler,
 } from "./middlewares/error.middleware.js";
+import { securityHeaders } from "./middlewares/security.middleware.js";
 import authRoutes from "./modules/auth/auth.routes.js";
 import staffRoutes from "./modules/staff/staff.routes.js";
 import menuRoutes from "./modules/menu/menu.routes.js";
@@ -17,16 +18,23 @@ import { ENV } from "./config/env.js";
 
 const app = express();
 
+// Behind the Next rewrite (and any future load balancer), req.ip is only the
+// client's address when Express knows how many proxy hops to trust.
+app.set("trust proxy", ENV.TRUST_PROXY);
+
+// Security headers first so even a rejected body or a 4xx carries them.
+app.use(securityHeaders);
 app.use(
   cors({
     origin: ENV.APP_URL,
     credentials: true,
   })
 );
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// A request larger than this is rejected by body-parser before any route runs.
+// Image uploads use multipart/Multer, whose own 5MB limit is separate.
+app.use(express.json({ limit: ENV.JSON_BODY_LIMIT }));
+app.use(express.urlencoded({ extended: true, limit: ENV.JSON_BODY_LIMIT }));
 app.use(cookieParser());
-app.set("trust proxy", 1);
 
 // Health check
 app.get("/health", (_req, res) => {

@@ -90,6 +90,16 @@ export const errorHandler = (
     }
   }
 
+  // Body-parser rejects a body larger than the configured limit before any
+  // route runs. Without this branch it would fall through as a 500.
+  if ("status" in err && err.status === HTTP_STATUS.PAYLOAD_TOO_LARGE) {
+    return sendErrorResponse(
+      res,
+      HTTP_STATUS.PAYLOAD_TOO_LARGE,
+      "Request body is too large"
+    );
+  }
+
   // Invalid JSON body from express.json()
   if (err instanceof SyntaxError && "status" in err && err.status === 400) {
     return sendErrorResponse(

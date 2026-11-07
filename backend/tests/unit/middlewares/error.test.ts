@@ -113,6 +113,25 @@ describe("errorHandler", () => {
     });
   });
 
+  it("maps an oversized request body to a 413", () => {
+    const res = mockResponse();
+    const error = new Error("request entity too large") as Error & {
+      status: number;
+      type: string;
+    };
+    error.status = HTTP_STATUS.PAYLOAD_TOO_LARGE;
+    error.type = "entity.too.large";
+
+    errorHandler(error, req, res as unknown as Response, next);
+
+    expect(res.status).toHaveBeenCalledWith(HTTP_STATUS.PAYLOAD_TOO_LARGE);
+    expect(res.json).toHaveBeenCalledWith({
+      success: false,
+      statusCode: 413,
+      message: "Request body is too large",
+    });
+  });
+
   it("hides unexpected error details outside development", () => {
     const res = mockResponse();
 

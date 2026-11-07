@@ -1,10 +1,10 @@
-# PlateFlow — Multi-tenant foundation: handoff
+# PlateFlow — session handoff
 
-**Branch:** `feat/multi-tenant-foundation` (pushed to `origin`; 3 commits ahead of `master`)
-**Date:** 2026-11-05 (updated from 2026-10-19)
-**Status:** Parts 1–4 built, plus the tenant-scope regression guard, real-user journey test, and
-image/upload coverage. Integration suite **executed and passing**.
-Part 4, the guard, and the new tests are **uncommitted in the working tree**.
+**Branch:** `feat/public-surface-hardening` (created after `feat/multi-tenant-foundation` merged)
+**Date:** 2026-11-07
+**Status:** Foundation merged. Public-surface hardening implemented: rate limiting on the
+anonymous/auth surface, Helmet security headers, configurable trust proxy, JSON body-size
+limit, and an explicit 413 path. Unit and integration suites green.
 
 > This file is a session handoff, not project documentation. Delete it once the branch is merged.
 
@@ -14,45 +14,32 @@ Part 4, the guard, and the new tests are **uncommitted in the working tree**.
 
 Read this section first. Everything below is background.
 
-- **Tenancy foundation is complete** (data model, auth tenant context, query isolation, frontend tenant label).
-- **The isolation proof has now run:** `pnpm --filter backend test:integration` →
-  **7 files, 103 passed, 1 skipped (104), ~116s** against a real disposable Neon database.
-- **Part 4 is implemented but NOT committed.** Working-tree change:
-  `frontend/features/dashboard/components/sidebar-user.tsx` (+9/−4).
-- **Tenant-scope regression guard is implemented but NOT committed.** New files:
-  `backend/tests/unit/lib/tenant-scope.ts` (analyzer + documented allowlist) and
-  `backend/tests/unit/tenant-scope.test.ts` (repo scan + edge-case coverage). The unit suite now
-  fails if any Prisma call on a tenant-owned model omits `restaurantId`, if a child model
-  (`OrderItem`, `MenuItemSize`) is queried without proving its parent's tenant, if update data
-  re-parents a row, if raw SQL appears, if an unknown model/method appears, or if an allowlist
-  entry goes stale. See §7.1 for how to extend it.
-- **New coverage in the working tree (all uncommitted):**
-  - `backend/tests/integration/real-user-journey.test.ts` — one restaurant's real day through the
-    public API and real sockets (login → menu/table → QR order → lifecycle → reporting → invite →
-    second-tenant isolation).
-  - `backend/tests/unit/lib/image-storage.test.ts` — Cloudinary mocked; upload, best-effort delete,
-    and replace ordering/rollback.
-  - `backend/tests/unit/middlewares/upload.test.ts` — real multipart requests through Multer
-    (MIME/size/field validation, missing file, returned bytes).
-- `backend/.env` now has a working `TEST_DATABASE_URL` pointing at a **separate disposable Neon
-  database** (verified different host + path from `DATABASE_URL`).
+- **Tenancy foundation is complete and merged** (data model, auth tenant context, query isolation, frontend tenant label).
+- **Public-surface hardening is implemented on this branch:**
+  - `backend/src/middlewares/rate-limit.middleware.ts` — public read/write and auth limiters,
+    env-driven, off outside production by default.
+  - `backend/src/middlewares/security.middleware.ts` — Helmet; CSP/HSTS only in production,
+    CORP cross-origin for the separate frontend origin.
+  - `backend/src/config/env.ts` — `TRUST_PROXY`, `JSON_BODY_LIMIT`, `RATE_LIMIT_*` parsing.
+  - `backend/src/app.ts` — configurable trust proxy, headers first, body limits, CORS.
+  - `backend/src/middlewares/error.middleware.ts` — body-parser 413 mapped to the JSON error shape.
+- **New coverage:** `backend/tests/unit/middlewares/rate-limit.test.ts` (factory on/off, 429 shape,
+  headers) and `backend/tests/integration/public-surface-hardening.test.ts` (real headers, 413,
+  public read/write 429). Unit suite **162 tests / 18 files**; integration **108 passed / 1 skipped**.
+- **`backend/.env.example` now documents every hardening variable.**
 - **Next recommended work, in order** (agreed with the user, who is building this as a real SaaS):
-  1. ~~Tenant-scope regression guard~~ — **done in the working tree**; review before committing.
-  2. **Real-user journey + image/upload coverage** — **done in the working tree**; review before
-     committing.
-  3. **Two-tenant staging E2E + deploy runbook** — the app-level flow is still only proven by the
+  1. **Two-tenant staging E2E + deploy runbook** — the app-level flow is still only proven by the
      DB/API/socket suite, not by clicking through two real restaurants in a browser (see §6).
-  4. **Public-surface hardening** — no rate limiting / helmet / body-size limit today, and `/api/v1/t/*`
-     is public and unthrottled (see §9.6). Needed before real customers.
-  5. Business layer (self-serve signup, plans/gating, billing, super-admin) — deliberately later.
+  2. **Business layer** (self-serve signup, plans/gating, billing, super-admin) — deliberately later.
+  3. Payments remain deferred until after the pilot; no billing code belongs on this branch.
 
 Commands to re-verify the current state:
 
 ```bash
 cd backend
 pnpm db:generate          # only needed if src/generated/prisma is stale/missing
-pnpm test:unit            # 159 tests, 17 files (includes the tenant-scope guard)
-pnpm test:integration     # reads TEST_DATABASE_URL from backend/.env; ~116s
+pnpm test:unit            # 162 tests, 18 files (includes the tenant-scope guard)
+pnpm test:integration     # reads TEST_DATABASE_URL from backend/.env; ~134s
 cd ..
 pnpm --filter frontend lint
 pnpm --filter frontend typecheck
@@ -208,8 +195,8 @@ landed with Part 3, once every writer supplied the value.
 | `prisma generate` | ok |
 | `pnpm --filter backend typecheck` | clean |
 | `pnpm --filter backend lint` | clean |
-| `pnpm --filter backend test:unit` | **159 tests, 17 files, all pass** (includes the tenant-scope guard) |
-| `pnpm --filter backend test:integration` | **7 files, 103 passed, 1 skipped (104)** — executed 2026-11-05, ~116s |
+| `pnpm --filter backend test:unit` | **162 tests, 18 files, all pass** (includes the tenant-scope guard and rate limiter) |
+| `pnpm --filter backend test:integration` | **8 files, 108 passed, 1 skipped (109)** — executed 2026-11-07, ~134s |
 | `pnpm --filter frontend lint` / `typecheck` | clean (re-run after Part 4) |
 | `pnpm --filter frontend build` | ok (11 routes, Next 16.2.6 / Turbopack) |
 | `prisma migrate status` (dev DB) | up to date, 8 migrations |
@@ -270,11 +257,10 @@ are real and tenant-scoped.
 
 ## 7. Remaining work (prioritized for a real SaaS)
 
-**Done in this session (all uncommitted — ask the user before committing):**
-- Part 4 (frontend restaurant name) — lint/typecheck/build green.
-- Tenant-scope regression guard — unit suite green at 159 tests / 17 files.
-- Real-user journey integration test + image-storage/upload tests — suite green at 104
-  integration tests (1 intentional skip) / 7 files.
+**Done on this branch:**
+- Public-surface hardening — limiters, Helmet, trust proxy, body limits, 413 mapping, env examples.
+  Unit suite green at 162 tests / 18 files; integration green at 109 tests (1 intentional skip) / 8 files.
+  Frontend lint/typecheck unaffected.
 
 ### 7.1 Tenant-scope guard — what it checks and how to extend it
 
@@ -310,13 +296,24 @@ missing filter** — only for reads that are global by design.
 **Next, recommended order:**
 
 1. **Two-tenant staging E2E + deploy runbook** (§6).
-2. **Public-surface hardening.** Current `src/app.ts` has CORS, JSON parsing and
-   `/health`, but **no rate limiting, no helmet, no body-size limit**. The diner
-   routes (`/api/v1/t/:token`, order placement) are public and unthrottled — add
-   per-IP limits there and on `/api/v1/auth/*`; add `express.json({ limit })`,
-   security headers, structured request/error logging, and a `.env.example`
-   (currently missing). Cheap now, expensive after abuse.
-3. **Business layer:** self-serve signup/trial, plan gating, billing, super-admin.
+2. **Business layer:** self-serve signup/trial, plan gating, billing, super-admin.
+
+### 7.3 Public-surface hardening — what exists now
+
+- **Rate limiting** (`rate-limit.middleware.ts`) is env-driven and defaults to on in production,
+  off in development/test. Public reads (diner menu, order status) and public writes (place order)
+  are limited; auth/invite endpoints use a longer window and do not count successful requests.
+- **`RATE_LIMIT_ENABLED=true`** is required to exercise limits locally. `RATE_LIMIT_*` variables
+  control windows and maxima; tests set them before importing the app.
+- **Store is in-memory per process.** Scaling horizontally needs a shared store (e.g. Redis) or each
+  instance enforces its own quota. This is deliberate for the pilot.
+- **`TRUST_PROXY`** defaults to `1` (the Next rewrite). Production must match the real proxy chain,
+  or `req.ip` will be the proxy and every client will share one bucket. Verify `X-Forwarded-For`
+  in staging.
+- **Security headers** (`security.middleware.ts`) run first, so 4xx/413/429 responses carry them.
+  CSP and HSTS are production-only; CORP is cross-origin for the separate frontend origin.
+- **Body limit** is `JSON_BODY_LIMIT` (default `1mb`); oversized bodies map to a JSON 413 in
+  `error.middleware.ts`. Multipart uploads keep Multer's separate 5MB limit.
 
 ## 8. Gotchas for the next agent
 
@@ -340,6 +337,11 @@ missing filter** — only for reads that are global by design.
   the email. `seed.ts` additionally throws if the seeded owner email already belongs
   to a different restaurant. Keep normalizing on any new user-write path — the
   cross-tenant invite guard in `staff.service.ts` depends on it.
+- **Rate limiting is off in dev/test by default.** Set `RATE_LIMIT_ENABLED=true` to exercise it.
+  Integration tests that need 429s must override the `RATE_LIMIT_*` variables *before* importing
+  `src/app.ts` (see `tests/integration/public-surface-hardening.test.ts`).
+- **`TRUST_PROXY` must match the production proxy chain.** A wrong value buckets every client behind
+  the proxy IP and makes the limits useless. Check `X-Forwarded-For` in staging.
 - **`OrderItem`/`MenuItemSize` have no `restaurantId`** — always reach them through
   the parent, never standalone.
 - **The test suite is stateful about fixtures but not the DB:** it creates random
@@ -366,6 +368,6 @@ missing filter** — only for reads that are global by design.
    proven statically, so the guard **fails closed** rather than guessing. If a
    legitimate future query is dynamic, resolve it into a local const with
    `restaurantId` or add a reviewed allowlist entry with a `reason`.
-6. **Public endpoints are unthrottled and there is no helmet/body-size limit**
-   (`src/app.ts`). `/api/v1/t/*` is anonymous by design. Add limits before launch;
-   see §7.3.
+6. ~~Public endpoints are unthrottled and there is no helmet/body-size limit~~ — **addressed**
+   2026-11-07 on `feat/public-surface-hardening`; see §7.3. Remaining decision: when to move the
+   rate-limit store to Redis (only needed once the API runs more than one instance).
