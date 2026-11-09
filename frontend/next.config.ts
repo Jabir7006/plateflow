@@ -1,6 +1,7 @@
 import type { NextConfig } from "next"
 
 const DEV_BACKEND_URL = "http://localhost:4000"
+const DEV_CLOUDINARY_CLOUD_NAME = "dkzqijrkd"
 
 // Rewrites are baked into the build output, so this must be set when building
 // for production. Without it every /api/v1 request would silently point at
@@ -12,7 +13,22 @@ if (process.env.NODE_ENV === "production" && !process.env.BACKEND_URL) {
   )
 }
 
+// next/image only optimises images from an allow-listed path. A production
+// build that keeps the dev cloud name would silently fail every menu photo, so
+// require the value explicitly rather than inheriting the local default.
+if (
+  process.env.NODE_ENV === "production" &&
+  !process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
+) {
+  throw new Error(
+    "NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME must be set for a production build. " +
+      "It must match the backend's CLOUDINARY_CLOUD_NAME."
+  )
+}
+
 const BACKEND_URL = process.env.BACKEND_URL || DEV_BACKEND_URL
+const CLOUDINARY_CLOUD_NAME =
+  process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || DEV_CLOUDINARY_CLOUD_NAME
 
 const nextConfig: NextConfig = {
   // Keep dynamic route segments in the client router cache for a few minutes so
@@ -31,7 +47,7 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "res.cloudinary.com",
-        pathname: "/dkzqijrkd/**",
+        pathname: `/${CLOUDINARY_CLOUD_NAME}/**`,
       },
     ],
   },
