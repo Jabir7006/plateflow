@@ -25,21 +25,40 @@ Read this section first. Everything below is background.
   - `backend/src/middlewares/error.middleware.ts` — body-parser 413 mapped to the JSON error shape.
 - **New coverage:** `backend/tests/unit/middlewares/rate-limit.test.ts` (factory on/off, 429 shape,
   headers) and `backend/tests/integration/public-surface-hardening.test.ts` (real headers, 413,
-  public read/write 429). Unit suite **162 tests / 18 files**; integration **108 passed / 1 skipped**.
-- **`backend/.env.example` now documents every hardening variable.**
+  public read/write 429). Unit suite **171 tests / 20 files**; integration **110 passed / 1 skipped**.
+- **Deploy and recovery runbooks are written:**
+  - `docs/DEPLOY-RUNBOOK.md` — Render + Vercel + Neon setup, env matrix, first launch, release,
+    rollback, `TRUST_PROXY` verification, two-tenant staging E2E, monitoring.
+  - `docs/BACKUP-RESTORE.md` — Neon PITR/branch drill, logical `pg_dump`/`pg_restore`, verification,
+    evidence template, disaster recovery.
+  - `docs/DRILL-LOG.md` — recorded drill evidence.
+  - `backend/scripts/` adds `db:backup`, `db:restore`, and the read-only `db:verify-restore`.
+  - **Logical restore drill passed (2026-11-07):** dumped the disposable test database, restored it
+    into a scratch database on the same Neon endpoint with `pg_restore`, and verified it. All 10
+    checks passed, all 10 table counts matched the source exactly, and the order spot-check matched
+    (status, total, line items, restaurant). Restore took 17.3 s; RTO was under a minute. Evidence is
+    in `docs/DRILL-LOG.md`. The Neon branch/PITR drill is still pending Neon account access.
+- **Deploy blockers fixed:** backend `build` now runs `prisma generate && tsc` (generated client is
+  gitignored), and the frontend production build requires `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` instead
+  of silently using the local Cloudinary cloud.
+- **`backend/.env.example` and `frontend/.env.example` document every variable, including
+  hardening and the Cloudinary build-time name.**
 - **Next recommended work, in order** (agreed with the user, who is building this as a real SaaS):
-  1. **Two-tenant staging E2E + deploy runbook** — the app-level flow is still only proven by the
-     DB/API/socket suite, not by clicking through two real restaurants in a browser (see §6).
-  2. **Business layer** (self-serve signup, plans/gating, billing, super-admin) — deliberately later.
-  3. Payments remain deferred until after the pilot; no billing code belongs on this branch.
+  1. **Run the staging two-tenant E2E** using `docs/DEPLOY-RUNBOOK.md` §7.1; the runbook itself is
+     written, but the real deployment has not been exercised yet.
+  2. **Complete the remaining recovery drill:** the logical dump/restore round trip passed on
+     2026-11-07 (`docs/DRILL-LOG.md`); run the Neon branch/PITR drill from the Neon account and
+     record it in the same log.
+  3. **Business layer** (self-serve signup, plans/gating, billing, super-admin) — deliberately later.
+  4. Payments remain deferred until after the pilot; no billing code belongs on this branch.
 
 Commands to re-verify the current state:
 
 ```bash
 cd backend
 pnpm db:generate          # only needed if src/generated/prisma is stale/missing
-pnpm test:unit            # 162 tests, 18 files (includes the tenant-scope guard)
-pnpm test:integration     # reads TEST_DATABASE_URL from backend/.env; ~134s
+pnpm test:unit            # 171 tests, 20 files (includes the tenant-scope guard and restore checks)
+pnpm test:integration     # reads TEST_DATABASE_URL from backend/.env; ~121s
 cd ..
 pnpm --filter frontend lint
 pnpm --filter frontend typecheck
@@ -195,8 +214,8 @@ landed with Part 3, once every writer supplied the value.
 | `prisma generate` | ok |
 | `pnpm --filter backend typecheck` | clean |
 | `pnpm --filter backend lint` | clean |
-| `pnpm --filter backend test:unit` | **162 tests, 18 files, all pass** (includes the tenant-scope guard and rate limiter) |
-| `pnpm --filter backend test:integration` | **8 files, 108 passed, 1 skipped (109)** — executed 2026-11-07, ~134s |
+| `pnpm --filter backend test:unit` | **171 tests, 20 files, all pass** (tenant-scope guard, rate limiter, restore helpers) |
+| `pnpm --filter backend test:integration` | **9 files, 110 passed, 1 skipped (111)** — executed 2026-11-07, ~121s |
 | `pnpm --filter frontend lint` / `typecheck` | clean (re-run after Part 4) |
 | `pnpm --filter frontend build` | ok (11 routes, Next 16.2.6 / Turbopack) |
 | `prisma migrate status` (dev DB) | up to date, 8 migrations |
@@ -242,12 +261,15 @@ second tenant's empty view). What is **still not verified**:
 
 - **Staging deploy + two real restaurants from separate devices:** the local walkthrough used one
   browser, so cross-device socket separation and cookie behavior on a real deployment are still
-  worth a staging pass.
-- **Deploy runbook:** the contract migration must be applied with
-  `prisma migrate deploy`; all pre-tenant staff sessions become invalid and every
-  user must log in again. Confirm that is acceptable and prepare the support note.
-- **Backup/restore drill:** prove a tenant's data can be restored. For a real SaaS
-  this matters as much as isolation.
+  worth a staging pass. The staging E2E checklist is in `docs/DEPLOY-RUNBOOK.md` §7.1.
+- **Deploy runbook:** written in `docs/DEPLOY-RUNBOOK.md`. It covers Render/Vercel/Neon setup, the
+  production env matrix, `TRUST_PROXY`, first launch, release, and rollback. The contract migration
+  must be applied with `prisma migrate deploy`; all pre-tenant staff sessions become invalid and
+  every user must log in again. Prepare the support note.
+- **Backup/restore drill:** the strategy, scripts, and verification are in
+  `docs/BACKUP-RESTORE.md`. The logical `pg_dump` → `pg_restore` round trip passed on 2026-11-07
+  (all 10 checks, matching counts, matching order spot-check; see `docs/DRILL-LOG.md`). The Neon
+  branch/PITR drill is still pending Neon account access and should be recorded in the same log.
 
 Two **pre-existing UI gaps** surfaced during the walkthrough (not tenant-foundation defects, and not
 introduced by this branch): the dashboard cards still read hard-coded mock data
@@ -259,7 +281,13 @@ are real and tenant-scoped.
 
 **Done on this branch:**
 - Public-surface hardening — limiters, Helmet, trust proxy, body limits, 413 mapping, env examples.
-  Unit suite green at 162 tests / 18 files; integration green at 109 tests (1 intentional skip) / 8 files.
+  Unit suite green at 171 tests / 20 files; integration green at 111 tests (1 intentional skip) / 9 files.
+- Deploy runbook and backup/restore drill tooling — `docs/DEPLOY-RUNBOOK.md`,
+  `docs/BACKUP-RESTORE.md`, `docs/DRILL-LOG.md`, `backend/scripts/db-{backup,restore}.ts`, and
+  `backend/scripts/verify-restore.ts` with unit + integration coverage. The logical restore drill
+  passed on 2026-11-07; only the Neon branch/PITR drill remains.
+- Deploy build fixes — `prisma generate` in the backend build, and a required
+  `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` for production frontend builds.
   Frontend lint/typecheck unaffected.
 
 ### 7.1 Tenant-scope guard — what it checks and how to extend it
