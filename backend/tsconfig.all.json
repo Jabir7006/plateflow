@@ -1,5 +1,11 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": { "rootDir": ".", "noEmit": true },
-  "include": ["src/**/*", "prisma/**/*.ts", "tests/**/*.ts", "vitest.*.ts"]
+  "include": [
+    "src/**/*",
+    "prisma/**/*.ts",
+    "scripts/**/*.ts",
+    "tests/**/*.ts",
+    "vitest.*.ts"
+  ]
 }
