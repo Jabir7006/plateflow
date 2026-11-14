@@ -66,10 +66,53 @@ verification token. The restore reproduced every row and relation.
 
 - This drill used a **scratch database on the same endpoint**, the documented
   variant in `BACKUP-RESTORE.md` §4.4. It proves the logical dump is readable
-  and complete; it does **not** exercise Neon branch creation or point-in-time
-  restore.
-- RTO excludes any provider-side branch/endpoint creation time. The Neon
-  branch/PITR drill is still pending account access and must be recorded here
-  when run.
+  and complete; the Neon branch/PITR path is covered by the D-2026-11-09 entry
+  below.
+- RTO excludes any provider-side branch/endpoint creation time.
 - `pg_dump`/`pg_restore` were client version 18.6, matching the server major
   version.
+
+---
+
+## D-2026-11-09 — Neon branch from a past point (PITR)
+
+| Field | Value |
+| --- | --- |
+| Drill date (UTC) | 2026-11-09 |
+| Operator | Automated run (agent), reviewed locally |
+| Result | **Pass** |
+| Project | `plateflow` (Neon, `aws-ap-southeast-1`) |
+| History window | 21,600 s (6 h, Free-plan cap) |
+| Source | `test` branch `br-rough-cloud-azmvo5ed` (root) |
+| Target | Branch `pitr-drill-2026-11-09T11-17-46-870-9212ffb5` (`br-silent-cherry-azpjkli9`), created from the past point |
+| Restore point | `2026-11-09T11:17:50.518Z` |
+| Restore method | Insert marker rows → delete → create branch with `parent_timestamp` → verify |
+| Branch create + verify | 7.2 s |
+| Total drill | 19.2 s (includes a 10 s safety wait) |
+| Verification | `db:verify-restore` — all 10 checks passed on the branch |
+| RTO observed | **< 1 minute** (target: ≤ 60 minutes) |
+
+### What was proven
+
+- A marker restaurant + category + item were committed at the restore point.
+- After deleting them, the source contained only the `default` restaurant.
+- A branch created from the restore point contained all three marker rows
+  (`Restaurant=2`; marker category and item present).
+- The branch passed every restore check (`migrations`, tenant contract,
+  restaurant anchor, orphan checks).
+- The source branch was never overwritten and was not modified by the drill.
+- The branch was deleted and the test branch baseline re-confirmed:
+  `Restaurant=1` (`default`), every other table `0`.
+
+### Notes and limitations
+
+- Only the disposable `test` branch was used. The `production` branch was not
+  touched; every API call was pinned to the test branch id.
+- This project's history window is **6 hours** (Free-plan cap). Production
+  should use the 7-day Launch window described in the runbook.
+- This proves branch-from-past/PITR works without touching the source. It does
+  not exercise an **in-place instant restore** (which overwrites the root
+  branch); that remains a documented recovery option rather than a drill
+  target.
+- Branch create + verify time excludes the 10 s wait used to make sure the
+  marker commit was visible in history.

@@ -295,9 +295,9 @@ migration.
 
 ### 6.1 Drill log
 
-Record each run in [Drill log](./DRILL-LOG.md). The first entry (2026-11-07)
-is a completed logical dump → scratch database drill. Use the template below
-for a new entry.
+Record each run in [Drill log](./DRILL-LOG.md). Two entries are recorded:
+the 2026-11-07 logical dump → scratch database drill and the 2026-11-09 Neon
+branch-from-past/PITR drill. Use the template below for a new entry.
 
 ```text
 Drill date (UTC):

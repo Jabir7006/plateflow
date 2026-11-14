@@ -36,8 +36,12 @@ Read this section first. Everything below is background.
   - **Logical restore drill passed (2026-11-07):** dumped the disposable test database, restored it
     into a scratch database on the same Neon endpoint with `pg_restore`, and verified it. All 10
     checks passed, all 10 table counts matched the source exactly, and the order spot-check matched
-    (status, total, line items, restaurant). Restore took 17.3 s; RTO was under a minute. Evidence is
-    in `docs/DRILL-LOG.md`. The Neon branch/PITR drill is still pending Neon account access.
+    (status, total, line items, restaurant). Restore took 17.3 s; RTO was under a minute.
+  - **Neon branch/PITR drill passed (2026-11-09):** inserted marker rows in the disposable `test`
+    branch, recorded a restore point, deleted them, and created a branch from that past point. The
+    branch contained all marker rows, passed all 10 restore checks, and took 7.2 s to create +
+    verify (19.2 s including a safety wait). The source branch was never overwritten. Evidence for
+    both drills is in `docs/DRILL-LOG.md`.
 - **Deploy blockers fixed:** backend `build` now runs `prisma generate && tsc` (generated client is
   gitignored), and the frontend production build requires `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` instead
   of silently using the local Cloudinary cloud.
@@ -46,11 +50,8 @@ Read this section first. Everything below is background.
 - **Next recommended work, in order** (agreed with the user, who is building this as a real SaaS):
   1. **Run the staging two-tenant E2E** using `docs/DEPLOY-RUNBOOK.md` §7.1; the runbook itself is
      written, but the real deployment has not been exercised yet.
-  2. **Complete the remaining recovery drill:** the logical dump/restore round trip passed on
-     2026-11-07 (`docs/DRILL-LOG.md`); run the Neon branch/PITR drill from the Neon account and
-     record it in the same log.
-  3. **Business layer** (self-serve signup, plans/gating, billing, super-admin) — deliberately later.
-  4. Payments remain deferred until after the pilot; no billing code belongs on this branch.
+  2. **Business layer** (self-serve signup, plans/gating, billing, super-admin) — deliberately later.
+  3. Payments remain deferred until after the pilot; no billing code belongs on this branch.
 
 Commands to re-verify the current state:
 
@@ -267,9 +268,10 @@ second tenant's empty view). What is **still not verified**:
   must be applied with `prisma migrate deploy`; all pre-tenant staff sessions become invalid and
   every user must log in again. Prepare the support note.
 - **Backup/restore drill:** the strategy, scripts, and verification are in
-  `docs/BACKUP-RESTORE.md`. The logical `pg_dump` → `pg_restore` round trip passed on 2026-11-07
-  (all 10 checks, matching counts, matching order spot-check; see `docs/DRILL-LOG.md`). The Neon
-  branch/PITR drill is still pending Neon account access and should be recorded in the same log.
+  `docs/BACKUP-RESTORE.md`. Both drills passed: the logical `pg_dump` → `pg_restore` round trip
+  (2026-11-07) and the Neon branch-from-past/PITR drill (2026-11-09). Evidence is in
+  `docs/DRILL-LOG.md`. Production must use a 7-day history window; the disposable test project is
+  currently on the 6-hour Free-plan cap.
 
 Two **pre-existing UI gaps** surfaced during the walkthrough (not tenant-foundation defects, and not
 introduced by this branch): the dashboard cards still read hard-coded mock data
@@ -284,8 +286,8 @@ are real and tenant-scoped.
   Unit suite green at 171 tests / 20 files; integration green at 111 tests (1 intentional skip) / 9 files.
 - Deploy runbook and backup/restore drill tooling — `docs/DEPLOY-RUNBOOK.md`,
   `docs/BACKUP-RESTORE.md`, `docs/DRILL-LOG.md`, `backend/scripts/db-{backup,restore}.ts`, and
-  `backend/scripts/verify-restore.ts` with unit + integration coverage. The logical restore drill
-  passed on 2026-11-07; only the Neon branch/PITR drill remains.
+  `backend/scripts/verify-restore.ts` with unit + integration coverage. Both the logical restore
+  and Neon branch/PITR drills passed (2026-11-07 and 2026-11-09).
 - Deploy build fixes — `prisma generate` in the backend build, and a required
   `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` for production frontend builds.
   Frontend lint/typecheck unaffected.
