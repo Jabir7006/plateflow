@@ -9,6 +9,10 @@ const pool = new pg.Pool({
   connectionString: DATABASE_URL,
 });
 
+// Exported so shutdown can close the pool explicitly. Prisma's pg adapter does
+// not own a pool passed to it, so prisma.$disconnect() alone leaves it open.
+export { pool };
+
 const adapter = new PrismaPg(pool);
 
 const globalForPrisma = globalThis as unknown as {

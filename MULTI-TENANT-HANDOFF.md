@@ -25,7 +25,7 @@ Read this section first. Everything below is background.
   - `backend/src/middlewares/error.middleware.ts` — body-parser 413 mapped to the JSON error shape.
 - **New coverage:** `backend/tests/unit/middlewares/rate-limit.test.ts` (factory on/off, 429 shape,
   headers) and `backend/tests/integration/public-surface-hardening.test.ts` (real headers, 413,
-  public read/write 429). Unit suite **171 tests / 20 files**; integration **110 passed / 1 skipped**.
+  public read/write 429). Unit suite **175 tests / 21 files**; integration **110 passed / 1 skipped**.
 - **Deploy and recovery runbooks are written:**
   - `docs/DEPLOY-RUNBOOK.md` — Render + Vercel + Neon setup, env matrix, first launch, release,
     rollback, `TRUST_PROXY` verification, two-tenant staging E2E, monitoring.
@@ -58,7 +58,7 @@ Commands to re-verify the current state:
 ```bash
 cd backend
 pnpm db:generate          # only needed if src/generated/prisma is stale/missing
-pnpm test:unit            # 171 tests, 20 files (includes the tenant-scope guard and restore checks)
+pnpm test:unit            # 175 tests, 21 files (includes the tenant-scope guard and restore checks)
 pnpm test:integration     # reads TEST_DATABASE_URL from backend/.env; ~121s
 cd ..
 pnpm --filter frontend lint
@@ -215,7 +215,7 @@ landed with Part 3, once every writer supplied the value.
 | `prisma generate` | ok |
 | `pnpm --filter backend typecheck` | clean |
 | `pnpm --filter backend lint` | clean |
-| `pnpm --filter backend test:unit` | **171 tests, 20 files, all pass** (tenant-scope guard, rate limiter, restore helpers) |
+| `pnpm --filter backend test:unit` | **175 tests, 21 files, all pass** (tenant-scope guard, rate limiter, restore helpers, graceful shutdown) |
 | `pnpm --filter backend test:integration` | **9 files, 110 passed, 1 skipped (111)** — executed 2026-11-07, ~121s |
 | `pnpm --filter frontend lint` / `typecheck` | clean (re-run after Part 4) |
 | `pnpm --filter frontend build` | ok (11 routes, Next 16.2.6 / Turbopack) |
@@ -283,7 +283,7 @@ are real and tenant-scoped.
 
 **Done on this branch:**
 - Public-surface hardening — limiters, Helmet, trust proxy, body limits, 413 mapping, env examples.
-  Unit suite green at 171 tests / 20 files; integration green at 111 tests (1 intentional skip) / 9 files.
+  Unit suite green at 175 tests / 21 files; integration green at 111 tests (1 intentional skip) / 9 files.
 - Deploy runbook and backup/restore drill tooling — `docs/DEPLOY-RUNBOOK.md`,
   `docs/BACKUP-RESTORE.md`, `docs/DRILL-LOG.md`, `backend/scripts/db-{backup,restore}.ts`, and
   `backend/scripts/verify-restore.ts` with unit + integration coverage. Both the logical restore
@@ -291,6 +291,9 @@ are real and tenant-scoped.
 - Deploy build fixes — `prisma generate` in the backend build, and a required
   `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` for production frontend builds.
   Frontend lint/typecheck unaffected.
+- Graceful shutdown — `SIGTERM`/`SIGINT` now close socket.io, the HTTP server,
+  Prisma, and the pg pool, with a 10 s force-exit watchdog. Unit-tested and
+  smoke-tested against the built server (`/health` then `SIGTERM` → exit 0).
 
 ### 7.1 Tenant-scope guard — what it checks and how to extend it
 

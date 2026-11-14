@@ -250,6 +250,15 @@ Also confirm:
   running. Do not retry blindly; inspect `_prisma_migrations` and the migration
   SQL first.
 
+### 6.3 Shutdown behavior
+
+Render sends `SIGTERM` before replacing an instance. The backend handles it in
+`src/lib/graceful-shutdown.ts`: socket.io disconnects its clients and closes the
+HTTP server, then Prisma disconnects and the pg pool ends. A 10 s watchdog
+force-closes remaining connections and exits non-zero if a step hangs. A local
+smoke test (built server, test DB, `/health`, then `SIGTERM`) exits 0; re-run it
+after changing realtime or database lifecycle code.
+
 ---
 
 ## 7. Smoke tests
@@ -395,9 +404,6 @@ false restarts, and monitor the database separately.
 
 ## 12. Known gaps / follow-ups
 
-- No graceful shutdown handler for `SIGTERM` yet; Render may terminate in-flight
-  requests during a deploy. Add `httpServer.close()`/`io.close()` and
-  `prisma.$disconnect()` before scaling.
 - No structured request logging or external error tracker yet. Add before real
   traffic if support volume grows.
 - Dashboard cards still use mock data, and the sidebar "Staff" link has no page
