@@ -1,76 +1,53 @@
-# PlateFlow — session handoff
+# PlateFlow — standing handoff (resume here)
 
-**Branch:** `feat/public-surface-hardening` (created after `feat/multi-tenant-foundation` merged)
-**Date:** 2026-11-07
-**Status:** Foundation merged. Public-surface hardening implemented: rate limiting on the
-anonymous/auth surface, Helmet security headers, configurable trust proxy, JSON body-size
-limit, and an explicit 413 path. Unit and integration suites green.
+**Repo:** `/home/jabir/Projects/plateflow` — default branch `master`
+**Updated:** 2026-11-22 · `master` @ `2c568a0` (pushed)
+**Live staging:** API `https://plateflow-staging-api.onrender.com` · web
+`https://plateflow-nu.vercel.app` · Neon branch `staging`
 
-> This file is a session handoff, not project documentation. Delete it once the branch is merged.
+> This is the durable resume point, not a throwaway session note. `AGENTS.md`
+> at the repo root tells every AI to read this section first and to keep it
+> current. Keep it short: status, done, next, rules, commands.
 
 ---
 
-## 0. Resume here (for the next agent)
+## 0. Resume here
 
-Read this section first. Everything below is background.
+**Status — green, nothing blocked.** Tenancy foundation and public-surface
+hardening are merged to `master`; staging is deployed and fully verified
+(platform, auth, tenant isolation, live socket, uploads, 413, rate limits).
+Evidence: `docs/DRILL-LOG.md` D-2026-11-22.
 
-- **Tenancy foundation is complete and merged** (data model, auth tenant context, query isolation, frontend tenant label).
-- **Public-surface hardening is implemented on this branch:**
-  - `backend/src/middlewares/rate-limit.middleware.ts` — public read/write and auth limiters,
-    env-driven, off outside production by default.
-  - `backend/src/middlewares/security.middleware.ts` — Helmet; CSP/HSTS only in production,
-    CORP cross-origin for the separate frontend origin.
-  - `backend/src/config/env.ts` — `TRUST_PROXY`, `JSON_BODY_LIMIT`, `RATE_LIMIT_*` parsing.
-  - `backend/src/app.ts` — configurable trust proxy, headers first, body limits, CORS.
-  - `backend/src/middlewares/error.middleware.ts` — body-parser 413 mapped to the JSON error shape.
-- **New coverage:** `backend/tests/unit/middlewares/rate-limit.test.ts` (factory on/off, 429 shape,
-  headers) and `backend/tests/integration/public-surface-hardening.test.ts` (real headers, 413,
-  public read/write 429). Unit suite **175 tests / 21 files**; integration **110 passed / 1 skipped**.
-- **Deploy and recovery runbooks are written:**
-  - `docs/DEPLOY-RUNBOOK.md` — Render + Vercel + Neon setup, env matrix, first launch, release,
-    rollback, `TRUST_PROXY` verification, two-tenant staging E2E, monitoring.
-  - `docs/BACKUP-RESTORE.md` — Neon PITR/branch drill, logical `pg_dump`/`pg_restore`, verification,
-    evidence template, disaster recovery.
-  - `docs/DRILL-LOG.md` — recorded drill evidence.
-  - `backend/scripts/` adds `db:backup`, `db:restore`, and the read-only `db:verify-restore`.
-  - **Logical restore drill passed (2026-11-07):** dumped the disposable test database, restored it
-    into a scratch database on the same Neon endpoint with `pg_restore`, and verified it. All 10
-    checks passed, all 10 table counts matched the source exactly, and the order spot-check matched
-    (status, total, line items, restaurant). Restore took 17.3 s; RTO was under a minute.
-  - **Neon branch/PITR drill passed (2026-11-09):** inserted marker rows in the disposable `test`
-    branch, recorded a restore point, deleted them, and created a branch from that past point. The
-    branch contained all marker rows, passed all 10 restore checks, and took 7.2 s to create +
-    verify (19.2 s including a safety wait). The source branch was never overwritten. Evidence for
-    both drills is in `docs/DRILL-LOG.md`.
-- **Deploy blockers fixed:** backend `build` now runs `prisma generate && tsc` (generated client is
-  gitignored), and the frontend production build requires `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` instead
-  of silently using the local Cloudinary cloud.
-- **`backend/.env.example` and `frontend/.env.example` document every variable, including
-  hardening and the Cloudinary build-time name.**
-- **Staging environment prepared (2026-11-21):** a disposable `staging` Neon branch
-  (`br-delicate-math-azov6qa2`) was created, its data truncated, migrations confirmed
-  applied, and two test tenants (`staging-one`, `staging-two`) provisioned. A local
-  two-tenant E2E passed: read isolation, order placement through the public QR path, and
-  live socket isolation (owner B received no events and no orders from owner A). Evidence
-  in `docs/DRILL-LOG.md` (D-2026-11-21). Staging credentials live outside the repo at
-  `~/.config/plateflow/staging.env` (mode 600).
-- **Staging is deployed (2026-11-22):** Render `plateflow-staging-api.onrender.com`
-  + Vercel `plateflow-nu.vercel.app`, both on commit `d8d1317`, against the Neon
-  `staging` branch. Health, security headers, CORS/preflight, cookie flags, tenant
-  read isolation, the diner order flow, the live kitchen board, the two-tenant socket
-  check (6/6), Cloudinary upload, `/_next/image`, and the 413 path all pass.
-  One defect found and fixed: `TRUST_PROXY` was `2`, but Render's
-  `X-Forwarded-For` has three entries (`client`, Cloudflare egress, Render
-  internal), so `2` selected the Cloudflare hop and one client was spread over
-  several buckets. At `3`, one keep-alive connection gave 120 × `200` then
-  `429` from #121, and a forged `X-Forwarded-For` was ignored. Evidence:
-  `docs/DRILL-LOG.md` D-2026-11-22.
-- **Next recommended work, in order** (agreed with the user, who is building this as a real SaaS):
-  1. ~~Staging deploy verification~~ — **done 2026-11-22**, all checks green
-     (12/12 platform/auth/isolation, 6/6 socket, 120-then-429 rate limit at
-     `TRUST_PROXY=3`). The staging checklist is complete; nothing is blocked.
-  2. **Business layer** (self-serve signup, plans/gating, billing, super-admin) — deliberately later.
-  3. Payments remain deferred until after the pilot; no billing code belongs on this branch.
+**Next action:** none pending. Agreed next priority is the **business layer**
+(self-serve signup, plan gating, billing, super-admin). Payments stay deferred
+until after the pilot. Ask the user which slice to start.
+
+**Changed in the last session:** docs only — `docs/STAGING-DEPLOY-GUIDE.md`
+(new), `docs/DRILL-LOG.md`, `docs/DEPLOY-RUNBOOK.md`, this file.
+
+**Read, in order:**
+1. This section.
+2. `docs/DEPLOY-RUNBOOK.md` — deploy, env matrix, `TRUST_PROXY`, release, rollback.
+3. `docs/DRILL-LOG.md` — what has actually been proven.
+4. `docs/STAGING-DEPLOY-GUIDE.md` — staging clicks and traps.
+5. `docs/BACKUP-RESTORE.md` — Neon PITR and logical dumps.
+
+**Sections §1–§9 are background.** Where they disagree with this section, this
+section wins — update it, not them.
+
+**Hard rules:**
+- Commit/push only when the user explicitly asks.
+- No secrets in chat or commits; staging credentials are in
+  `~/.config/plateflow/staging.env` (outside the repo, mode 600).
+- Fresh checkout → `pnpm --filter backend db:generate` first.
+- `prisma migrate deploy` only; never `migrate dev`; never `db:seed` on
+  staging or production.
+- Real tests for every feature; show lint/typecheck/test output.
+- Preserve multi-tenant isolation. No payment/billing code yet.
+
+**Before you stop — or as soon as context is getting low — update the four
+lines above** (Status, Next action, Changed, and any blocker) so the next
+session can continue from the single word "continue".
 
 Commands to re-verify the current state:
 

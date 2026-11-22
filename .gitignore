@@ -36,3 +36,6 @@ backend/.verify/
 
 # OS
 .DS_Store
+
+# Local-only scratch (agent notes, throwaway checks)
+.openidea/
