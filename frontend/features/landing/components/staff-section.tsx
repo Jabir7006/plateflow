@@ -1,49 +1,55 @@
 import Link from "next/link"
-import { Check } from "lucide-react"
-import { buttonVariants } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
+import { ArrowRight, Check, SlidersHorizontal } from "lucide-react"
 import { LOGIN_PATH } from "../content"
 
 const CAPABILITIES = [
   "Edit categories, dishes, photos and prices",
-  "Flip availability the moment you sell out",
-  "Generate a QR for every table",
+  "Update availability when a dish sells out",
+  "Generate a QR code for every table",
   "Invite staff with the right role and access",
 ]
 
 export function StaffSection() {
   return (
-    <section id="staff" className="border-t border-border/60 py-20 md:py-28">
-      <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 sm:px-6 md:grid-cols-2">
+    <section
+      id="staff"
+      className="landing-section"
+      aria-labelledby="staff-title"
+    >
+      <div className="landing-container landing-staff-grid">
         <div>
-          <h2 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
-            Built for the people running the floor
+          <p className="landing-label">For the people behind the service</p>
+          <h2 id="staff-title" className="landing-heading">
+            You run the floor
+            <br />
+            We keep the details
+            <br />
+            in order
           </h2>
-          <p className="mt-4 text-lg text-muted-foreground text-pretty">
-            Owners and managers get one dashboard for the whole menu and team.
-            Chefs get a screen that only shows what&apos;s cooking.
+          <p className="landing-copy">
+            One workspace for your menu and your team. Owners and managers stay
+            in control, with access shaped around each person’s role.
           </p>
-          <Link
-            href={LOGIN_PATH}
-            className={cn(buttonVariants(), "mt-8 h-11 px-5")}
-          >
-            Staff login
-          </Link>
+          <div className="landing-staff-actions">
+            <Link href={LOGIN_PATH} className="landing-text-link">
+              Go to staff login <ArrowRight />
+            </Link>
+          </div>
         </div>
-
-        <ul className="space-y-3">
-          {CAPABILITIES.map((item) => (
-            <li
-              key={item}
-              className="flex items-start gap-3 rounded-xl border border-border bg-card px-4 py-3"
-            >
-              <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-brand/15 text-brand">
-                <Check className="size-3.5" />
-              </span>
-              <span className="text-sm text-foreground">{item}</span>
-            </li>
-          ))}
-        </ul>
+        <div className="landing-staff-panel">
+          <div className="landing-staff-panel-header">
+            <SlidersHorizontal />
+            <p>Your day-to-day, in one place</p>
+          </div>
+          <ul className="landing-staff-list">
+            {CAPABILITIES.map((item) => (
+              <li key={item}>
+                <Check aria-hidden="true" />
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
     </section>
   )

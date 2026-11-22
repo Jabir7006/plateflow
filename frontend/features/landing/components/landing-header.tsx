@@ -1,45 +1,86 @@
+"use client"
+
 import Link from "next/link"
-import { UtensilsCrossed } from "lucide-react"
-import { buttonVariants } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
+import { Menu, UtensilsCrossed, X } from "lucide-react"
+import { useState } from "react"
 import { LOGIN_PATH, NAV_LINKS } from "../content"
 import { ThemeToggle } from "./theme-toggle"
 
 export function LandingHeader() {
-  return (
-    <header className="sticky top-0 z-50 border-b border-border/60 bg-background/80 backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-        <Link href="/" className="flex items-center gap-2">
-          <span className="flex size-8 items-center justify-center rounded-lg bg-brand text-brand-foreground">
-            <UtensilsCrossed className="size-4" />
-          </span>
-          <span className="font-display text-lg font-semibold tracking-tight">
-            PlateFlow
-          </span>
-        </Link>
+  const [menuOpen, setMenuOpen] = useState(false)
 
-        <nav className="hidden items-center gap-8 md:flex">
+  return (
+    <header
+      className="landing-header"
+      onKeyDown={(event) => {
+        if (event.key !== "Escape" || !menuOpen) return
+        setMenuOpen(false)
+        event.currentTarget
+          .querySelector<HTMLButtonElement>(".landing-menu-toggle")
+          ?.focus()
+      }}
+    >
+      <a href="#main-content" className="landing-skip-link">
+        Skip to content
+      </a>
+      <div className="landing-container landing-header-inner">
+        <Link href="/" className="landing-wordmark" aria-label="PlateFlow home">
+          <span className="landing-logo-mark">
+            <UtensilsCrossed />
+          </span>
+          <span>PlateFlow</span>
+        </Link>
+        <nav className="landing-nav" aria-label="Main navigation">
           {NAV_LINKS.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
-              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-            >
+            <a key={link.href} href={link.href}>
               {link.label}
             </a>
           ))}
         </nav>
-
-        <div className="flex items-center gap-2">
+        <div className="landing-header-actions">
           <ThemeToggle />
           <Link
             href={LOGIN_PATH}
-            className={cn(buttonVariants({ variant: "outline" }), "h-9")}
+            className="landing-text-link landing-header-login"
           >
-            Staff login
+            Staff login <span aria-hidden="true">↗</span>
           </Link>
+          <button
+            type="button"
+            className="landing-menu-toggle"
+            aria-label={menuOpen ? "Close navigation" : "Open navigation"}
+            aria-expanded={menuOpen}
+            aria-controls="landing-mobile-navigation"
+            onClick={() => setMenuOpen(!menuOpen)}
+          >
+            {menuOpen ? (
+              <X size={18} strokeWidth={1.5} />
+            ) : (
+              <Menu size={18} strokeWidth={1.5} />
+            )}
+          </button>
         </div>
       </div>
+      {menuOpen ? (
+        <nav
+          id="landing-mobile-navigation"
+          className="landing-mobile-nav"
+          aria-label="Mobile navigation"
+        >
+          {NAV_LINKS.map((link) => (
+            <a
+              key={link.href}
+              href={link.href}
+              onClick={() => setMenuOpen(false)}
+            >
+              {link.label}
+            </a>
+          ))}
+          <Link href={LOGIN_PATH} onClick={() => setMenuOpen(false)}>
+            Staff login
+          </Link>
+        </nav>
+      ) : null}
     </header>
   )
 }

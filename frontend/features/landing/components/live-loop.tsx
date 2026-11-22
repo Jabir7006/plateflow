@@ -1,36 +1,35 @@
 import { FLOW_STEPS } from "../content"
-import { Reveal } from "./reveal"
 
 export function LiveLoop() {
   return (
-    <section id="flow" className="border-t border-border/60 py-20 md:py-28">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        <div className="max-w-2xl">
-          <h2 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
-            One loop, from order to pickup
-          </h2>
-          <p className="mt-4 text-lg text-muted-foreground text-pretty">
-            No paper tickets, no shouting across the pass. Every step is
-            connected, so the diner and the kitchen always see the same thing.
+    <section id="flow" className="landing-section" aria-labelledby="flow-title">
+      <div className="landing-container">
+        <div className="landing-section-heading">
+          <div>
+            <p className="landing-label">How it works</p>
+            <h2 id="flow-title" className="landing-heading">
+              One table
+              <br />
+              One connected service
+            </h2>
+          </div>
+          <p className="landing-copy">
+            From the first scan to the final pickup, a simpler path between your
+            guests and your kitchen.
           </p>
         </div>
-
-        <ol className="mt-14 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-          {FLOW_STEPS.map((step, i) => (
-            <Reveal key={step.step} as="li" delay={i * 100}>
-              <span className="font-display text-sm font-semibold text-brand">
-                {step.step}
-              </span>
-              <div className="mt-3 h-px w-full bg-border">
-                <span className="block h-px w-8 bg-brand" />
-              </div>
-              <h3 className="mt-4 font-medium text-foreground">{step.title}</h3>
-              <p className="mt-2 text-sm text-muted-foreground text-pretty">
-                {step.body}
-              </p>
-            </Reveal>
+        <ol className="landing-flow-grid">
+          {FLOW_STEPS.map((step) => (
+            <li key={step.step} className="landing-flow-step">
+              <span className="landing-flow-number">{step.step}</span>
+              <h3>{step.title}</h3>
+              <p>{step.body}</p>
+            </li>
           ))}
         </ol>
+        <p className="landing-roadmap-note">
+          One connected view for your guests, your kitchen and your floor
+        </p>
       </div>
     </section>
   )

@@ -1,7 +1,7 @@
 # PlateFlow — standing handoff (resume here)
 
 **Repo:** `/home/jabir/Projects/plateflow` — default branch `master`
-**Updated:** 2026-11-22 · `master` @ `2c568a0` (pushed)
+**Updated:** 2026-11-22 · landing-page release reviewed against current `master`
 **Live staging:** API `https://plateflow-staging-api.onrender.com` · web
 `https://plateflow-nu.vercel.app` · Neon branch `staging`
 
@@ -13,19 +13,30 @@
 
 ## 0. Resume here
 
-**Status — green, nothing blocked.** Tenancy foundation and public-surface
-hardening are merged to `master`; staging is deployed and fully verified
-(platform, auth, tenant isolation, live socket, uploads, 413, rate limits).
-Evidence: `docs/DRILL-LOG.md` D-2026-11-22.
+**Status — green.** The landing-page redesign is complete and reviewed against
+current `master`, preserving the tenancy and live-ordering work. The page uses
+actual light/dark diner screenshots, accessible mobile navigation and lightweight
+one-time motion. Review corrected stale “in development” labels because ordering
+and kitchen features are implemented. Lint, typecheck, frontend production build,
+175 unit tests and 110 integration tests pass (1 integration test skipped).
+Production browser checks pass at 320–1440px, with a working live-menu link and
+no page errors. No database migrations or customer-data changes.
 
-**Next action:** none pending. Agreed next priority is the **business layer**
-(self-serve signup, plan gating, billing, super-admin). Payments stay deferred
-until after the pilot. Ask the user which slice to start.
+**Next action:** no landing-page implementation remains. Confirm the automatic
+Vercel deployment after publication. The agreed next product priority remains
+the business layer (self-serve signup, plan gating and super-admin); payments
+stay deferred until after the pilot.
 
-**Changed in the last session:** docs only — `docs/STAGING-DEPLOY-GUIDE.md`
-(new), `docs/DRILL-LOG.md`, `docs/DEPLOY-RUNBOOK.md`, this file.
+**Changed in this session:** `frontend/app/page.tsx`,
+`frontend/features/landing/` (copy, styling, actual menu preview, accessible mobile
+navigation and one-time motion), two WebP captures in `frontend/public/images/`,
+and this handoff. Earlier local `.gitignore` and backend ESLint scratch-ignore
+edits are already covered by current master. The user explicitly authorized push
+and merge to `master`; Git credentials have repository push access. The GitHub PR
+integration needs an extra `read:org` scope, so publication can use Git directly.
 
 **Read, in order:**
+
 1. This section.
 2. `docs/DEPLOY-RUNBOOK.md` — deploy, env matrix, `TRUST_PROXY`, release, rollback.
 3. `docs/DRILL-LOG.md` — what has actually been proven.
@@ -36,6 +47,7 @@ until after the pilot. Ask the user which slice to start.
 section wins — update it, not them.
 
 **Hard rules:**
+
 - Commit/push only when the user explicitly asks.
 - No secrets in chat or commits; staging credentials are in
   `~/.config/plateflow/staging.env` (outside the repo, mode 600).
@@ -78,6 +90,7 @@ Squeezy), super-admin panel, per-restaurant food-payment providers
 (SSLCommerz/Stripe), diner-page branding, staff-at-multiple-restaurants.
 
 Locked decisions:
+
 - **Onboarding = admin-provisioned** (a CLI script creates each restaurant + its first OWNER).
 - **`User.email` stays globally unique** — one person = one account at one restaurant (v1).
 - **`Table.qrCode`, token hashes stay globally unique** — `qrCode` is the only public tenant anchor.
@@ -86,14 +99,14 @@ The full plan lives at `~/.claude/plans/fizzy-rolling-hejlsberg.md`.
 
 ## 2. The three commits (+ uncommitted Part 4)
 
-| Commit | What |
-| --- | --- |
-| `dbe59ef` | `feat(backend): multi-tenant restaurant foundation` — schema, migration, seed, provisioning CLI, test scaffolding |
-| `5362e8e` | `feat(backend): enforce tenant isolation across every query` — the scoping itself, middleware, realtime rooms, contract migration, frontend cache fix |
-| `2688f4a` | `test(backend): cover critical paths with unit and integration suites` |
-| *(uncommitted)* | Part 4 — sidebar shows the active restaurant name, plus this handoff update |
-| *(uncommitted)* | Tenant-scope regression guard — static AST check in the unit suite, with a documented allowlist for intentional global reads |
-| *(uncommitted)* | Real-user journey + image/upload tests — one end-to-end API/socket day, plus Cloudinary/Multer coverage |
+| Commit          | What                                                                                                                                                  |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dbe59ef`       | `feat(backend): multi-tenant restaurant foundation` — schema, migration, seed, provisioning CLI, test scaffolding                                     |
+| `5362e8e`       | `feat(backend): enforce tenant isolation across every query` — the scoping itself, middleware, realtime rooms, contract migration, frontend cache fix |
+| `2688f4a`       | `test(backend): cover critical paths with unit and integration suites`                                                                                |
+| _(uncommitted)_ | Part 4 — sidebar shows the active restaurant name, plus this handoff update                                                                           |
+| _(uncommitted)_ | Tenant-scope regression guard — static AST check in the unit suite, with a documented allowlist for intentional global reads                          |
+| _(uncommitted)_ | Real-user journey + image/upload tests — one end-to-end API/socket day, plus Cloudinary/Multer coverage                                               |
 
 ## 3. Architecture — the parts a next agent must NOT casually change
 
@@ -181,6 +194,7 @@ MenuItem, MenuCategory, Table, Order**. `OrderItem`, `MenuItemSize`,
 column added.
 
 Composite uniques replaced the global ones:
+
 - `@@unique([restaurantId, number])` on Table (was `number @unique`)
 - `@@unique([restaurantId, name])` on MenuCategory (was `name @unique`)
 
@@ -194,7 +208,7 @@ Order reporting indexes became `[restaurantId, createdAt]` and
    row to the default, swap indexes/uniques, add FKs.
 2. `20261024070000_tenant_restaurant_id_required` — the **contract**: a `DO $$`
    block that (a) returns early if there are no orphans, (b) **raises** with an
-   actionable message if orphans exist *and* >1 restaurant exists (ambiguous
+   actionable message if orphans exist _and_ >1 restaurant exists (ambiguous
    owner — refuses to guess), (c) folds orphans into the sole restaurant if there
    is exactly one, then `SET NOT NULL` on all five tables.
 
@@ -205,30 +219,30 @@ landed with Part 3, once every writer supplied the value.
 
 ## 5. Verified ✅ (re-run these to confirm)
 
-| Check | Result |
-| --- | --- |
-| `prisma validate` | valid |
-| `prisma generate` | ok |
-| `pnpm --filter backend typecheck` | clean |
-| `pnpm --filter backend lint` | clean |
-| `pnpm --filter backend test:unit` | **175 tests, 21 files, all pass** (tenant-scope guard, rate limiter, restore helpers, graceful shutdown) |
-| `pnpm --filter backend test:integration` | **9 files, 110 passed, 1 skipped (111)** — executed 2026-11-07, ~121s |
-| `pnpm --filter frontend lint` / `typecheck` | clean (re-run after Part 4) |
-| `pnpm --filter frontend build` | ok (11 routes, Next 16.2.6 / Turbopack) |
-| `prisma migrate status` (dev DB) | up to date, 8 migrations |
-| `prisma migrate status` (test DB) | up to date, 8 migrations |
-| `prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code` | **No difference** (no drift, dev DB) |
-| DB row audit (dev) | 1 restaurant (`default_restaurant`); `restaurantId` **NOT NULL** on all 5 tables; **0 orphan rows** (User 2/2, MenuItem 9/9, MenuCategory 5/5, Table 6/6, Order 10/10) |
-| Dev DB after integration run | unchanged (User 2, MenuItem 9, MenuCategory 5, Table 6, Order 10, OrderItem 14) |
-| Test DB after integration run | returned to baseline (1 `default_restaurant`, 0 users/menu/tables/orders) — cleanup works |
-| Local browser walkthrough (2026-11-05) | login → sidebar shows restaurant → menu → QR diner order → live board PENDING→PREPARING→READY→SERVED → diner status updates over sockets → history/stats show the order → second tenant sees an empty history and a cold cache. Test DB returned to baseline afterwards. |
+| Check                                                                                       | Result                                                                                                                                                                                                                                                                   |
+| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `prisma validate`                                                                           | valid                                                                                                                                                                                                                                                                    |
+| `prisma generate`                                                                           | ok                                                                                                                                                                                                                                                                       |
+| `pnpm --filter backend typecheck`                                                           | clean                                                                                                                                                                                                                                                                    |
+| `pnpm --filter backend lint`                                                                | clean                                                                                                                                                                                                                                                                    |
+| `pnpm --filter backend test:unit`                                                           | **175 tests, 21 files, all pass** (tenant-scope guard, rate limiter, restore helpers, graceful shutdown)                                                                                                                                                                 |
+| `pnpm --filter backend test:integration`                                                    | **9 files, 110 passed, 1 skipped (111)** — executed 2026-11-07, ~121s                                                                                                                                                                                                    |
+| `pnpm --filter frontend lint` / `typecheck`                                                 | clean (re-run after Part 4)                                                                                                                                                                                                                                              |
+| `pnpm --filter frontend build`                                                              | ok (11 routes, Next 16.2.6 / Turbopack)                                                                                                                                                                                                                                  |
+| `prisma migrate status` (dev DB)                                                            | up to date, 8 migrations                                                                                                                                                                                                                                                 |
+| `prisma migrate status` (test DB)                                                           | up to date, 8 migrations                                                                                                                                                                                                                                                 |
+| `prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code` | **No difference** (no drift, dev DB)                                                                                                                                                                                                                                     |
+| DB row audit (dev)                                                                          | 1 restaurant (`default_restaurant`); `restaurantId` **NOT NULL** on all 5 tables; **0 orphan rows** (User 2/2, MenuItem 9/9, MenuCategory 5/5, Table 6/6, Order 10/10)                                                                                                   |
+| Dev DB after integration run                                                                | unchanged (User 2, MenuItem 9, MenuCategory 5, Table 6, Order 10, OrderItem 14)                                                                                                                                                                                          |
+| Test DB after integration run                                                               | returned to baseline (1 `default_restaurant`, 0 users/menu/tables/orders) — cleanup works                                                                                                                                                                                |
+| Local browser walkthrough (2026-11-05)                                                      | login → sidebar shows restaurant → menu → QR diner order → live board PENDING→PREPARING→READY→SERVED → diner status updates over sockets → history/stats show the order → second tenant sees an empty history and a cold cache. Test DB returned to baseline afterwards. |
 
 ### 5.1 Integration suite details (do not lose this)
 
 The suite is now real, proven, and safe to re-run:
 
 - `backend/.env` has `TEST_DATABASE_URL` → a **separate disposable Neon database**.
-  It is *not* the dev DB: different host and database path were checked explicitly.
+  It is _not_ the dev DB: different host and database path were checked explicitly.
 - `tests/setup.integration.ts` imports `dotenv/config`, reads `TEST_DATABASE_URL`,
   then **overrides** `DATABASE_URL` and `DIRECT_URL` from it. So plain
   `pnpm --filter backend test:integration` from the repo root works; no exports needed.
@@ -239,13 +253,13 @@ The suite is now real, proven, and safe to re-run:
   `tenant-isolation.test.ts` (§408). It requires a seeded `default_restaurant`
   with an OWNER and tables. The disposable DB has only the bare restaurant row, so
   it self-skips — this is the documented, correct behavior, not a failure.
-  `SEED_MANAGER_PASSWORD` *is* present in `backend/.env`; the skip happens because
+  `SEED_MANAGER_PASSWORD` _is_ present in `backend/.env`; the skip happens because
   the **data** is absent, not the variable.
 - The suite provisions each restaurant through the real
   `prisma/create-restaurant.ts` CLI and deletes exactly what it created. A run
   leaves the disposable DB at its baseline and never touches the dev DB.
 - Re-running does not require re-migrating (test DB is already at 8 migrations).
-  If you ever point it at a *new* empty DB, apply migrations first with
+  If you ever point it at a _new_ empty DB, apply migrations first with
   `DATABASE_URL`/`DIRECT_URL` set to that DB (`prisma migrate deploy`; never `migrate dev`).
 
 ## 6. Remaining verification ⚠️
@@ -279,6 +293,7 @@ are real and tenant-scoped.
 ## 7. Remaining work (prioritized for a real SaaS)
 
 **Done on this branch:**
+
 - Public-surface hardening — limiters, Helmet, trust proxy, body limits, 413 mapping, env examples.
   Unit suite green at 175 tests / 21 files; integration green at 111 tests (1 intentional skip) / 9 files.
 - Deploy runbook and backup/restore drill tooling — `docs/DEPLOY-RUNBOOK.md`,
@@ -369,7 +384,7 @@ missing filter** — only for reads that are global by design.
   to a different restaurant. Keep normalizing on any new user-write path — the
   cross-tenant invite guard in `staff.service.ts` depends on it.
 - **Rate limiting is off in dev/test by default.** Set `RATE_LIMIT_ENABLED=true` to exercise it.
-  Integration tests that need 429s must override the `RATE_LIMIT_*` variables *before* importing
+  Integration tests that need 429s must override the `RATE_LIMIT_*` variables _before_ importing
   `src/app.ts` (see `tests/integration/public-surface-hardening.test.ts`).
 - **`TRUST_PROXY` must match the production proxy chain.** A wrong value buckets every client behind
   the proxy IP and makes the limits useless. On Render behind Cloudflare use `3`; verify with the §4
@@ -386,7 +401,7 @@ missing filter** — only for reads that are global by design.
 ## 9. Things worth a second opinion
 
 1. ~~Run the integration suite~~ — **done 2026-11-05**, 103 passed / 1 legitimate skip.
-2. `staff.service.ts` invite: an existing user from *another* restaurant now gets a
+2. `staff.service.ts` invite: an existing user from _another_ restaurant now gets a
    generic 409 "This email is already in use" (deliberately non-disclosing). Confirm
    that UX is acceptable.
 3. `authenticate` rejecting pre-tenant tokens = **every existing staff session is

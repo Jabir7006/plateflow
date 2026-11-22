@@ -4,36 +4,23 @@ import { LOGIN_PATH, NAV_LINKS } from "../content"
 
 export function LandingFooter() {
   return (
-    <footer className="border-t border-border/60 py-10">
-      <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 px-4 sm:flex-row sm:px-6">
-        <div className="flex items-center gap-2">
-          <span className="flex size-7 items-center justify-center rounded-lg bg-brand text-brand-foreground">
-            <UtensilsCrossed className="size-3.5" />
+    <footer className="landing-footer">
+      <div className="landing-container landing-footer-inner">
+        <Link href="/" className="landing-wordmark" aria-label="PlateFlow home">
+          <span className="landing-logo-mark">
+            <UtensilsCrossed />
           </span>
-          <span className="font-display font-semibold">PlateFlow</span>
-        </div>
-
-        <nav className="flex flex-wrap items-center justify-center gap-6 text-sm text-muted-foreground">
+          <span>PlateFlow</span>
+        </Link>
+        <nav aria-label="Footer navigation">
           {NAV_LINKS.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
-              className="transition-colors hover:text-foreground"
-            >
+            <a key={link.href} href={link.href}>
               {link.label}
             </a>
           ))}
-          <Link
-            href={LOGIN_PATH}
-            className="transition-colors hover:text-foreground"
-          >
-            Staff login
-          </Link>
+          <Link href={LOGIN_PATH}>Staff login</Link>
         </nav>
-
-        <p className="text-xs text-muted-foreground">
-          © {new Date().getFullYear()} PlateFlow
-        </p>
+        <small>© {new Date().getFullYear()} PlateFlow</small>
       </div>
     </footer>
   )

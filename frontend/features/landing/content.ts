@@ -30,39 +30,39 @@ export interface Feature {
 export const FEATURES: Feature[] = [
   {
     icon: QrCode,
-    title: "Scan-to-view menu",
-    body: "Each table gets its own QR. Diners open a fast, photo-first menu that browses as an immersive deck or a simple list, in light or dark.",
+    title: "One scan, the whole menu",
+    body: "A QR code for each table opens a photo-first menu on your guest’s phone. Browse as a deck or a list, in light or dark.",
     status: "live",
   },
   {
     icon: Ruler,
-    title: "Sizes and real pricing",
-    body: "Items carry their own sizes with distinct prices — Small, Regular, 12\" — and the menu always shows the right 'from' price.",
+    title: "Every size, clearly priced",
+    body: "Small, regular or a 12-inch pizza. Set a price for each size and show guests exactly where pricing starts.",
     status: "live",
   },
   {
     icon: LayoutGrid,
-    title: "Menu management",
-    body: "Owners edit categories, dishes, photos and availability from the dashboard. Changes reach every table instantly.",
+    title: "A menu that stays current",
+    body: "Edit dishes, photos and categories in your workspace. Update availability when something sells out.",
     status: "live",
   },
   {
     icon: Users,
-    title: "Role-based staff",
-    body: "Invite Owners, Managers, Chefs and Waiters. Each role sees only what it needs, behind secure authentication.",
+    title: "Everyone has their place",
+    body: "Invite managers, chefs and waiters with access suited to their role. Keep the team in one shared workspace.",
     status: "live",
   },
   {
     icon: Radio,
     title: "Live order tracking",
-    body: "Diners watch their order move from placed to preparing to ready in real time — no refresh, no guessing.",
-    status: "building",
+    body: "Guests follow their order from placed to preparing to ready, with updates sent straight to their phone.",
+    status: "live",
   },
   {
     icon: ChefHat,
     title: "Kitchen display",
-    body: "Orders land on the kitchen screen the moment they're placed. Chefs tap through Start, Ready and Picked up over a live socket.",
-    status: "building",
+    body: "A dedicated screen brings orders to the kitchen. Chefs move each ticket through preparing, ready and picked up.",
+    status: "live",
   },
 ]
 
@@ -77,21 +77,21 @@ export const FLOW_STEPS: FlowStep[] = [
   {
     step: "01",
     title: "Scan and order",
-    body: "The diner scans the table QR, browses the menu and places an order from their own phone.",
+    body: "Guests scan their table’s QR code, browse the menu and place an order on their own phone.",
   },
   {
     step: "02",
     title: "Kitchen sees it live",
-    body: "The order appears on the kitchen display instantly. The chef taps Start to begin preparing.",
+    body: "Orders go straight to the kitchen display, ready for the chef to start preparing.",
   },
   {
     step: "03",
     title: "Status updates in real time",
-    body: "Preparing, then Ready — each tap pushes straight to the diner's screen over a live connection.",
+    body: "Preparing, then ready. Each update reaches the guest without a refresh.",
   },
   {
     step: "04",
     title: "Picked up",
-    body: "The chef marks it picked up, the loop closes, and the table is ready for the next order.",
+    body: "The kitchen marks the order picked up, closing the loop for the next service.",
   },
 ]
