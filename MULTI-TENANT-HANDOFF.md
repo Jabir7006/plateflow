@@ -20,7 +20,10 @@ one-time motion. Review corrected stale “in development” labels because orde
 and kitchen features are implemented. Lint, typecheck, frontend production build,
 175 unit tests and 110 integration tests pass (1 integration test skipped).
 Production browser checks pass at 320–1440px, with a working live-menu link and
-no page errors. No database migrations or customer-data changes.
+no page errors. Live staging review found the old fallback demo token returned
+404; the fallback now uses an existing, verified nonempty staging table.
+`NEXT_PUBLIC_DEMO_MENU_PATH` still overrides it for each deployment. No database
+migrations or customer-data changes.
 
 **Next action:** no landing-page implementation remains. Confirm the automatic
 Vercel deployment after publication. The agreed next product priority remains
@@ -30,7 +33,7 @@ stay deferred until after the pilot.
 **Changed in this session:** `frontend/app/page.tsx`,
 `frontend/features/landing/` (copy, styling, actual menu preview, accessible mobile
 navigation and one-time motion), two WebP captures in `frontend/public/images/`,
-and this handoff. Earlier local `.gitignore` and backend ESLint scratch-ignore
+`frontend/.env.example` demo-path documentation, and this handoff. Earlier local `.gitignore` and backend ESLint scratch-ignore
 edits are already covered by current master. The user explicitly authorized push
 and merge to `master`; Git credentials have repository push access. The GitHub PR
 integration needs an extra `read:org` scope, so publication can use Git directly.

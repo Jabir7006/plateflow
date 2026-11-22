@@ -10,7 +10,7 @@ import {
 
 export const DEMO_MENU_PATH =
   process.env.NEXT_PUBLIC_DEMO_MENU_PATH ??
-  "/t/ANlbxN5ErrFogNrum_ujjLEta42EPgD719S2yXKHcw"
+  "/t/GfLzDTEJkFzHwbGHMbfnkyLvLrEt8mU6VkJQNPwqtl8"
 
 export const LOGIN_PATH = "/login"
 

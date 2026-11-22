@@ -1,6 +1,6 @@
 # PlateFlow landing page redesign
 
-Scope: the root landing page only. Dashboard, authentication and diner routes retain their existing implementation. Section order, demo-menu configuration, login and contact destinations are preserved.
+Scope: the root landing page only. Dashboard, authentication and diner routes retain their existing implementation. Section order, the demo-menu environment override, login and contact destinations are preserved. Release review replaced the expired fallback QR token with an existing, verified nonempty staging menu.
 
 ## Direction
 
@@ -51,6 +51,6 @@ Captures show Table 100 and the Classic Cheeseburger at ৳180. Recapture these 
 - Browser verification of the real menu preview link, theme switching and mobile navigation
 - Responsive checks at 320, 390, 768, 900, 1280 and 1440 pixels
 
-The configured demo menu still requires the existing backend and a valid table token; this redesign does not change that integration.
+The configured demo menu requires the existing backend and a valid table token. The fallback was verified against the deployed staging API; set `NEXT_PUBLIC_DEMO_MENU_PATH` when using a different deployment or regenerating the demo table’s QR code.
 
 Design process follows **unslop by Damir Sokolovsky ([@heydamir](https://x.com/heydamir))**, licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Adapted for PlateFlow: https://heydamir.design/unslop
