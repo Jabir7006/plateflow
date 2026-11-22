@@ -6,6 +6,9 @@ releases, rollback, and the checks that must pass before traffic moves.
 
 Companion document: [Backup and restore drill](./BACKUP-RESTORE.md).
 
+Step-by-step clicks for staging, plus the small traps that cost time while
+setting it up: [Staging deploy guide](./STAGING-DEPLOY-GUIDE.md).
+
 > **Assumptions**
 > - Backend: Render **Web Service** (Node, long-running process, WebSockets).
 > - Frontend: Vercel **Next.js** project.
@@ -113,7 +116,7 @@ or reject every menu image.
 | `PORT` | Render injects `10000`; do not hardcode |
 | `DATABASE_URL` | Neon **pooled** URL |
 | `DIRECT_URL` | Neon **direct** URL (migrations, Prisma CLI) |
-| `APP_URL` | Exact frontend origin, e.g. `https://app.example.com` — no trailing slash |
+| `APP_URL` | Exact frontend origin, e.g. `https://app.example.com` — no trailing slash. **Not cosmetic:** it is the CORS allow-list for the API and the direct socket connection. A placeholder here breaks the live board even though the page loads. |
 | `ACCESS_TOKEN_SECRET` | Long random secret, unique per environment |
 | `REFRESH_TOKEN_SECRET` | Long random secret, unique per environment |
 | `MAIL_FROM` | Verified Resend sender, e.g. `PlateFlow <no-reply@example.com>` |
@@ -123,7 +126,7 @@ or reject every menu image.
 | `CLOUDINARY_API_SECRET` | Production secret |
 | `SEED_MANAGER_EMAIL` | Required by env validation even when seeding is not run |
 | `SEED_MANAGER_PASSWORD` | Strong random value; never run `db:seed` in production |
-| `TRUST_PROXY` | Start with `2` (Vercel rewrite + Render proxy); verify §4 |
+| `TRUST_PROXY` | `3` on Render — `X-Forwarded-For` carries client + Cloudflare + Render-internal; verify §4 |
 | `JSON_BODY_LIMIT` | `1mb` |
 | `RATE_LIMIT_ENABLED` | `true` |
 | `RATE_LIMIT_WINDOW_MS` | `60000` |
@@ -157,22 +160,43 @@ cross-site and `SameSite=strict` will block them. Keep the rewrite.
 The request path is:
 
 ```text
-browser → Vercel edge/rewrite → Render edge proxy → Express
+browser → Vercel edge/rewrite → Cloudflare → Render edge → Express
 ```
 
-Express must trust exactly the hops that are actually in front of it. If the
-number is too low, `req.ip` is a proxy address and every client shares one rate
-limit bucket. If it is too high, a client can spoof `X-Forwarded-For`.
+and the header the app actually receives has three entries:
+
+```text
+X-Forwarded-For: <client>, <cloudflare-egress>, <render-internal>
+```
+
+Express reads the header right to left, so `trust proxy = N` returns the
+`(N+1)`th address from the right. For this header `3` is the client, `2` is the
+Cloudflare hop (a different IP per request), and `1` is the Render-internal
+hop. Too low and every client shares buckets; too high and a client-supplied
+`X-Forwarded-For` entry becomes selectable.
 
 Procedure (staging only):
 
-1. Set `TRUST_PROXY=2` on Render and redeploy.
-2. From two networks/devices, send enough public requests to observe the
-   `RateLimit` headers. Each client should get its own quota.
-3. If they share a bucket, try `3`; if one client can spoof its bucket by
-   changing `X-Forwarded-For`, the value is too high.
+1. Set `TRUST_PROXY=3` on Render and redeploy.
+2. From one client, send ~150 public requests and watch the `RateLimit` headers:
+   you should see `remaining` fall monotonically from `119` and then `429`s.
+   If `remaining` keeps jumping back to `119`, the value is too low; if a
+   request with a forged `X-Forwarded-For` gets its own bucket, it is too high.
+3. Repeat from a second network/device: each client must get its own quota.
 4. Remove any temporary debug logging you added while checking. Do not add a
    public IP-echo endpoint to production.
+
+**Observed on staging, 2026-11-22 (`DRILL-LOG.md` D-2026-11-22):** with
+`TRUST_PROXY=2` as deployed, 165 sequential requests from one client saw zero
+429s; 900 parallel requests produced 655 × `200` + 245 × `429`, i.e. ~six
+buckets of 120; and a single keep-alive connection alternated between an
+exhausted bucket and fresh ones. That is the Cloudflare hop.
+
+**Confirmed fix:** after setting `3`, one keep-alive connection sent 130
+requests and received **120 × `200` then `429` from #121**, with `remaining`
+walking `119 → 0` and no resets. A forged `X-Forwarded-For` did not open a new
+bucket. `3` is correct for Render behind Cloudflare; `4` would trust a
+client-supplied entry.
 
 Re-check this whenever you add a CDN, load balancer, or custom proxy.
 
@@ -295,6 +319,10 @@ Browser checklist:
 
 This is the check the automated suite cannot do: two real restaurants, separate
 browser profiles/devices, real cookies, and real WebSocket separation.
+
+> Status (2026-11-21): the read/isolation/socket parts passed against the staging
+> branch on a local backend — see `docs/DRILL-LOG.md` D-2026-11-21. The remaining
+> gap is the deployed proxy path, which needs the Render and Vercel services.
 
 1. Provision two restaurants against the staging database with distinct owners.
 2. Use two browser profiles (or one normal + one private window) on separate

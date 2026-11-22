@@ -47,9 +47,28 @@ Read this section first. Everything below is background.
   of silently using the local Cloudinary cloud.
 - **`backend/.env.example` and `frontend/.env.example` document every variable, including
   hardening and the Cloudinary build-time name.**
+- **Staging environment prepared (2026-11-21):** a disposable `staging` Neon branch
+  (`br-delicate-math-azov6qa2`) was created, its data truncated, migrations confirmed
+  applied, and two test tenants (`staging-one`, `staging-two`) provisioned. A local
+  two-tenant E2E passed: read isolation, order placement through the public QR path, and
+  live socket isolation (owner B received no events and no orders from owner A). Evidence
+  in `docs/DRILL-LOG.md` (D-2026-11-21). Staging credentials live outside the repo at
+  `~/.config/plateflow/staging.env` (mode 600).
+- **Staging is deployed (2026-11-22):** Render `plateflow-staging-api.onrender.com`
+  + Vercel `plateflow-nu.vercel.app`, both on commit `d8d1317`, against the Neon
+  `staging` branch. Health, security headers, CORS/preflight, cookie flags, tenant
+  read isolation, the diner order flow, the live kitchen board, the two-tenant socket
+  check (6/6), Cloudinary upload, `/_next/image`, and the 413 path all pass.
+  One defect found and fixed: `TRUST_PROXY` was `2`, but Render's
+  `X-Forwarded-For` has three entries (`client`, Cloudflare egress, Render
+  internal), so `2` selected the Cloudflare hop and one client was spread over
+  several buckets. At `3`, one keep-alive connection gave 120 × `200` then
+  `429` from #121, and a forged `X-Forwarded-For` was ignored. Evidence:
+  `docs/DRILL-LOG.md` D-2026-11-22.
 - **Next recommended work, in order** (agreed with the user, who is building this as a real SaaS):
-  1. **Run the staging two-tenant E2E** using `docs/DEPLOY-RUNBOOK.md` §7.1; the runbook itself is
-     written, but the real deployment has not been exercised yet.
+  1. ~~Staging deploy verification~~ — **done 2026-11-22**, all checks green
+     (12/12 platform/auth/isolation, 6/6 socket, 120-then-429 rate limit at
+     `TRUST_PROXY=3`). The staging checklist is complete; nothing is blocked.
   2. **Business layer** (self-serve signup, plans/gating, billing, super-admin) — deliberately later.
   3. Payments remain deferred until after the pilot; no billing code belongs on this branch.
 
@@ -260,9 +279,10 @@ real sockets. A **local browser walkthrough** on 2026-11-05 also passed the huma
 disposable test DB (login, sidebar tenant label, menu, QR order, live status, history/stats, and a
 second tenant's empty view). What is **still not verified**:
 
-- **Staging deploy + two real restaurants from separate devices:** the local walkthrough used one
-  browser, so cross-device socket separation and cookie behavior on a real deployment are still
-  worth a staging pass. The staging E2E checklist is in `docs/DEPLOY-RUNBOOK.md` §7.1.
+- **Staging deploy + two real restaurants on public URLs:** the 2026-11-21 staging E2E ran a local
+  backend against the staging branch and proved tenant isolation plus live socket isolation, but it
+  is not the deployed proxy path. Render and Vercel services still need creating; the checklist is in
+  `docs/DEPLOY-RUNBOOK.md` §7.1.
 - **Deploy runbook:** written in `docs/DEPLOY-RUNBOOK.md`. It covers Render/Vercel/Neon setup, the
   production env matrix, `TRUST_PROXY`, first launch, release, and rollback. The contract migration
   must be applied with `prisma migrate deploy`; all pre-tenant staff sessions become invalid and
@@ -341,8 +361,9 @@ missing filter** — only for reads that are global by design.
 - **Store is in-memory per process.** Scaling horizontally needs a shared store (e.g. Redis) or each
   instance enforces its own quota. This is deliberate for the pilot.
 - **`TRUST_PROXY`** defaults to `1` (the Next rewrite). Production must match the real proxy chain,
-  or `req.ip` will be the proxy and every client will share one bucket. Verify `X-Forwarded-For`
-  in staging.
+  or `req.ip` will be the proxy and every client will share one bucket. Verified on Render behind
+  Cloudflare: `X-Forwarded-For` arrives as `client, cloudflare-egress, render-internal`, so `3` is
+  the client and `2` is a per-request Cloudflare IP. Confirm with the §4 burst before launch.
 - **Security headers** (`security.middleware.ts`) run first, so 4xx/413/429 responses carry them.
   CSP and HSTS are production-only; CORP is cross-origin for the separate frontend origin.
 - **Body limit** is `JSON_BODY_LIMIT` (default `1mb`); oversized bodies map to a JSON 413 in
@@ -374,7 +395,8 @@ missing filter** — only for reads that are global by design.
   Integration tests that need 429s must override the `RATE_LIMIT_*` variables *before* importing
   `src/app.ts` (see `tests/integration/public-surface-hardening.test.ts`).
 - **`TRUST_PROXY` must match the production proxy chain.** A wrong value buckets every client behind
-  the proxy IP and makes the limits useless. Check `X-Forwarded-For` in staging.
+  the proxy IP and makes the limits useless. On Render behind Cloudflare use `3`; verify with the §4
+  burst (one keep-alive connection must walk `remaining` to 0 and then `429`).
 - **`OrderItem`/`MenuItemSize` have no `restaurantId`** — always reach them through
   the parent, never standalone.
 - **The test suite is stateful about fixtures but not the DB:** it creates random
