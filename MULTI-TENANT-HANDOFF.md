@@ -1,7 +1,7 @@
 # PlateFlow — standing handoff (resume here)
 
 **Repo:** `/home/jabir/Projects/plateflow` — default branch `master`
-**Updated:** 2026-11-25 · hosted CI verified on PR #4; branch cleanup complete
+**Updated:** 2026-11-25 · PR #4 merged; CI on master; obsolete branches removed
 **Live staging:** API `https://plateflow-staging-api.onrender.com` · web
 `https://plateflow-nu.vercel.app` · Neon branch `staging`
 
@@ -13,7 +13,13 @@
 
 ## 0. Resume here
 
-**Status — CI published and hosted run passed; PR #4 remains open.**
+**Status — CI merged into master; PR #4 complete.**
+Merge commit f6ccb2609cdbdd77cc31337dc5318f15487e022a. User explicitly asked
+to merge if appropriate; latest head 4c3fa7c was up to date, mergeable, with
+CI/Vercel/Preview Comments all passed (3/3), no unresolved review threads.
+Local master synced; merged ci/github-actions deleted locally/remotely under
+the earlier unused-branch cleanup request. Only master remains.
+This post-merge handoff update is documentation only; CI code is unchanged.
 Commit d3cc18bf49492910b048572cfcf5a339abf6fdcf on ci/github-actions.
 PR https://github.com/Jabir7006/plateflow/pull/4 targets master, mergeable, no
 unresolved reviews. Implementation commit d3cc18b has CI, Vercel and Preview Comments all passed;
@@ -26,8 +32,8 @@ Base f3ab0e7 (origin/master). User explicitly approved CI implementation and
 asked whether release gates mean CD. Explained: CI checks revisions; release
 gates are deployment preconditions; CD automates deployment around them.
 User now explicitly authorized CI commit/push, opening a PR/hosted run and
-deleting unnecessary branches. CI merge, required branch checks and CD changes
-have not been authorized.
+deleting unnecessary branches. CI merge is now authorized and completed. Required branch checks and CD
+changes have not been authorized.
 No CD workflow or live platform settings changed. Previous release authorization
 was fulfilled with PR #3 and the release-doc push; do not infer it for new work.
 
@@ -131,22 +137,22 @@ dev, diner-menu-redesign, feat/dashboard-live-data, feat/menu-page,
 feat/multi-tenant-foundation, feat/public-surface-hardening, feat/tables,
 landing-page. Remote deleted: same names except feat/menu-page/feat/tables
 (already local-only). Remote deletion was atomic with expected-SHA leases;
-local deletion used -d after reachability checks. Only master and active
-ci/github-actions remain both locally and remotely. The active CI branch stays
-for PR #4 and master retains every removed tip.
+local deletion used -d after reachability checks. After PR #4 merge, ci/github-actions was also deleted locally/remotely after
+reachability verification and expected-SHA remote deletion. Only master remains
+both locally and remotely; it retains every removed tip (9 local/7 remote
+branches removed across the cleanup and subsequent CI merge).
 No commits lost: every removed tip remains reachable from master. Details in
 gitignored backend/.verify/branch-cleanup-result.json.
 
-**Next action:** ensure latest PR #4 checks are passing before any later
-user-authorized merge. Implementation/hosted verification and branch cleanup
-are complete; final evidence-only documentation is pushed separately and
-rechecks identical application/CI code. When its checks are pending, use the PR
-watch and end the turn; fix genuine failures within the existing CI publication
-scope. CI merge, required branch checks and CD policy still need explicit user
-authorization. Keep master/ci/github-actions; backend remains manual. Later:
-self-serve onboarding, plan gating, super-admin; payments deferred.
+**Next action:** CI implementation and conditional merge are complete. The
+workflow is now on master and runs on pushes/PRs/merge-group/manual triggers.
+User chooses the next scope. Recommended: explicitly approved ruleset requiring
+the CI check, then design automated release gates/CD if desired. Do not enable
+branch protection or change manual backend deployment policy without approval.
+Later product priorities: self-serve onboarding, plan gating, super-admin;
+payments deferred. No open CI PR or PR watch remains.
 
-**Changed / CI commit files (all committed/pushed):**
+**Changed / CI files (merged through PR #4):**
 
 - .github/workflows/ci.yml
 - backend/package.json (ci:env command)
@@ -158,15 +164,13 @@ self-serve onboarding, plan gating, super-admin; payments deferred.
 - MULTI-TENANT-HANDOFF.md (includes prior advice-turn edits)
 
 No dependency/lockfile changes, application feature or schema migration.
-CI implementation is committed/pushed at d3cc18b. The only final bookkeeping
-changes are docs/CI.md and MULTI-TENANT-HANDOFF.md; they form the evidence-only
-documentation commit, without changes to tested code. Branch cleanup report stays
-gitignored in backend/.verify/. Previous app release remains on master.
+Implementation d3cc18b and evidence 4c3fa7c are merged in f6ccb26. Only
+MULTI-TENANT-HANDOFF.md changes in this merge turn, recording completed merge
+and cleanup; it is the post-merge documentation commit. No source/test changes.
 
-**Blocker:** none for implementation/branch cleanup. Hosted implementation run
-is green. Native PR/CI tools work; no auth workaround needed. Verify the latest
-evidence-only commit's normal checks through the PR watcher before handback.
-No new release/deployment settings or required-check rules were changed.
+**Blocker:** none. Latest PR head had all 3 checks passed before merging;
+master push triggers CI again normally. PR watchers are off. Backend deployment
+remains manual and required-check rules/CD settings were not changed.
 
 **Read, in order:** this section → docs/DEPLOY-RUNBOOK.md → docs/DRILL-LOG.md →
 docs/STAGING-DEPLOY-GUIDE.md → docs/BACKUP-RESTORE.md. Older sections below are
