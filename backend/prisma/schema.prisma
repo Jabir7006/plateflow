@@ -11,6 +11,9 @@ model Restaurant {
   id        String   @id @default(cuid())
   name      String
   slug      String   @unique
+  // Explicit per-restaurant IANA timezone. UTC is a compatibility fallback for
+  // existing rows; the provisioning CLI requires an operator-selected zone.
+  timeZone  String   @default("UTC")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

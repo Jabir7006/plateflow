@@ -14,6 +14,7 @@ import dinerRoutes from "./modules/diner/diner.routes.js";
 import orderRoutes from "./modules/order/order.routes.js";
 import staffOrderRoutes from "./modules/order/order.staff.routes.js";
 import realtimeRoutes from "./modules/realtime/realtime.routes.js";
+import dashboardRoutes from "./modules/dashboard/dashboard.routes.js";
 import { ENV } from "./config/env.js";
 
 const app = express();
@@ -54,6 +55,7 @@ app.use("/api/v1/t", orderRoutes);
 app.use("/api/v1/orders", staffOrderRoutes);
 // Authenticated: mint a short-lived socket.io ticket for the staff session.
 app.use("/api/v1/realtime", realtimeRoutes);
+app.use("/api/v1/dashboard", dashboardRoutes);
 
 // Error Handling Middleware
 app.use(notFoundHandler);

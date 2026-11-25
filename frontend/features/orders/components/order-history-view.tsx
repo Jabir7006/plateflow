@@ -2,6 +2,10 @@
 
 import { useState } from "react"
 import type { OrderStatus } from "@plateflow/shared"
+import {
+  formatReportingPeriod,
+  hasCustomReportingDates,
+} from "@plateflow/shared"
 import { ClipboardList } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -34,16 +38,17 @@ export function OrderHistoryView() {
       : null
 
   const range = resolveRange(rangePreset, { from: customFrom, to: customTo })
+  const needsDates = !hasCustomReportingDates(range)
+  const canQuery = !rangeError && !needsDates
 
   const query = useOrderHistory(
     {
       page,
       pageSize: PAGE_SIZE,
       status: status === "ALL" ? undefined : status,
-      from: range.from,
-      to: range.to,
+      ...range,
     },
-    !rangeError
+    canQuery
   )
 
   // Any filter change starts over at the first page.
@@ -64,7 +69,11 @@ export function OrderHistoryView() {
   return (
     <div className="space-y-6">
       {canViewSales ? (
-        <SalesSummary from={range.from} to={range.to} />
+        <SalesSummary
+          range={range}
+          enabled={canQuery}
+          historyPeriod={canQuery ? query.data?.period : undefined}
+        />
       ) : null}
 
       <OrderHistoryFilters
@@ -78,24 +87,35 @@ export function OrderHistoryView() {
         rangeError={rangeError}
       />
 
-      <HistoryBody query={query} rangeError={rangeError} onPageChange={setPage} />
+      {needsDates ? (
+        <p role="status" className="text-sm text-muted-foreground">
+          Choose at least a start or end date to view a custom range.
+        </p>
+      ) : canQuery && query.data ? (
+        <p className="text-sm text-muted-foreground">
+          Orders placed {formatReportingPeriod(query.data.period)}
+          {canViewSales ? ". Sales include served orders." : null}
+        </p>
+      ) : null}
+
+      <HistoryBody query={query} blocked={!canQuery} onPageChange={setPage} />
     </div>
   )
 }
 
 function HistoryBody({
   query,
-  rangeError,
+  blocked,
   onPageChange,
 }: {
   query: ReturnType<typeof useOrderHistory>
-  rangeError: string | null
+  blocked: boolean
   onPageChange: (page: number) => void
 }) {
   const { data, isPending, isError, error, refetch, isFetching } = query
 
   // The filters already surface the message; nothing to load while it stands.
-  if (rangeError) return null
+  if (blocked) return null
 
   if (isPending) return <OrderHistorySkeleton />
 

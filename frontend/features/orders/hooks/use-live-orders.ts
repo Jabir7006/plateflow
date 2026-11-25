@@ -26,9 +26,15 @@ interface UseLiveOrdersOptions {
   // Fired when a genuinely new order arrives over the socket — not on the initial
   // load, and not for status updates — so the board can chime and highlight it.
   onNewOrder?: (order: StaffOrderView) => void
+  // Dashboard metrics also change when an order advances or finishes.
+  onOrderUpdated?: (order: StaffOrderView) => void
+  onConnect?: () => void
 }
 
-function upsert(list: StaffOrderView[], order: StaffOrderView): StaffOrderView[] {
+function upsert(
+  list: StaffOrderView[],
+  order: StaffOrderView
+): StaffOrderView[] {
   const i = list.findIndex((o) => o.id === order.id)
   if (i === -1) return [...list, order]
   const next = list.slice()
@@ -36,7 +42,11 @@ function upsert(list: StaffOrderView[], order: StaffOrderView): StaffOrderView[]
   return next
 }
 
-export function useLiveOrders({ onNewOrder }: UseLiveOrdersOptions = {}) {
+export function useLiveOrders({
+  onNewOrder,
+  onOrderUpdated,
+  onConnect,
+}: UseLiveOrdersOptions = {}) {
   const queryClient = useQueryClient()
 
   const query = useQuery<StaffOrderView[]>({
@@ -48,10 +58,10 @@ export function useLiveOrders({ onNewOrder }: UseLiveOrdersOptions = {}) {
 
   // Read the callback through a ref so a new closure each render doesn't tear the
   // socket down and reconnect.
-  const onNewOrderRef = useRef(onNewOrder)
+  const callbacksRef = useRef({ onNewOrder, onOrderUpdated, onConnect })
   useEffect(() => {
-    onNewOrderRef.current = onNewOrder
-  }, [onNewOrder])
+    callbacksRef.current = { onNewOrder, onOrderUpdated, onConnect }
+  }, [onNewOrder, onOrderUpdated, onConnect])
 
   useEffect(() => {
     // Whether the *last* ticket fetch failed because the session is gone (401).
@@ -82,13 +92,14 @@ export function useLiveOrders({ onNewOrder }: UseLiveOrdersOptions = {}) {
         arrived = true
         return [...list, order]
       })
-      if (arrived) onNewOrderRef.current?.(order)
+      if (arrived) callbacksRef.current.onNewOrder?.(order)
     }
 
     const handleUpdated = ({ order }: OrderEventPayload) => {
       queryClient.setQueryData<StaffOrderView[]>(activeOrdersKey, (prev) =>
         upsert(prev ?? [], order).filter((o) => isActiveStatus(o.status))
       )
+      callbacksRef.current.onOrderUpdated?.(order)
     }
 
     // Catch up on every (re)connect, including the first. The initial query and
@@ -97,6 +108,7 @@ export function useLiveOrders({ onNewOrder }: UseLiveOrdersOptions = {}) {
     // socket is in the room, closes that gap as well as any reconnect gap.
     const handleConnect = () => {
       void queryClient.invalidateQueries({ queryKey: activeOrdersKey })
+      callbacksRef.current.onConnect?.()
     }
 
     // Only a genuinely dead session stops the reconnect loop. A transient failure

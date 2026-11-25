@@ -7,6 +7,14 @@ export * from "./types/table.types.js";
 export * from "./types/diner.types.js";
 export * from "./schemas/order.schema.js";
 export * from "./types/order.types.js";
+export * from "./types/dashboard.types.js";
+export { createRefreshThrottle } from "./utils/refresh-throttle.js";
+export * from "./types/reporting.types.js";
+export { formatReportingPeriod } from "./utils/format-reporting-period.js";
+export {
+  hasCustomReportingDates,
+  reportingPeriodsMatch,
+} from "./utils/reporting-state.js";
 export type {
   LoginSchema,
   InviteSchema,
