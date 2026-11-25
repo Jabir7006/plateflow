@@ -1,7 +1,7 @@
 # PlateFlow — standing handoff (resume here)
 
 **Repo:** `/home/jabir/Projects/plateflow` — default branch `master`
-**Updated:** 2026-11-25 · CI publication authorized; obsolete branches cleaned
+**Updated:** 2026-11-25 · hosted CI verified on PR #4; branch cleanup complete
 **Live staging:** API `https://plateflow-staging-api.onrender.com` · web
 `https://plateflow-nu.vercel.app` · Neon branch `staging`
 
@@ -13,7 +13,15 @@
 
 ## 0. Resume here
 
-**Status — CI commit/push/PR authorized; publication in progress.**
+**Status — CI published and hosted run passed; PR #4 remains open.**
+Commit d3cc18bf49492910b048572cfcf5a339abf6fdcf on ci/github-actions.
+PR https://github.com/Jabir7006/plateflow/pull/4 targets master, mergeable, no
+unresolved reviews. Implementation commit d3cc18b has CI, Vercel and Preview Comments all passed;
+no unresolved reviews. The CI run verified actual Docker/Action startup and all
+commands on Ubuntu; native CI logs confirmed 130 integration tests/1 skip and
+11 frontend routes. Final evidence-only docs commit rechecks the same code.
+CI run: https://github.com/Jabir7006/plateflow/actions/runs/45636424048.
+Commit hooks passed both lint/typechecks. GitHub Actions is enabled.
 Base f3ab0e7 (origin/master). User explicitly approved CI implementation and
 asked whether release gates mean CD. Explained: CI checks revisions; release
 gates are deployment preconditions; CD automates deployment around them.
@@ -47,8 +55,9 @@ local Postgres18.7: unit **222 / 27 files**, integration **130 / 11 files,
 production builds pass (11 frontend routes). All 9 migrations applied from empty
 DB. Temporary Postgres stopped and checkout/DB data removed. Sanitized logs and
 report under backend/.verify/ci-validation-logs/ and ci-clean-result.json.
-Hosted GitHub Actions execution is not yet verified; Docker service startup and
-Action execution need the first pushed PR run. Local tests used Postgres binaries
+Hosted GitHub Actions completed successfully on PR #4 implementation commit
+d3cc18b. Docker service startup and the pinned Actions worked on Ubuntu24.04.
+The final evidence-only documentation push triggers another normal CI run. Local tests used Postgres binaries
 because this workstation has no Docker. No local runtime/provider keys copied.
 
 **Last staging release — green (unchanged):** PR
@@ -123,19 +132,21 @@ feat/multi-tenant-foundation, feat/public-surface-hardening, feat/tables,
 landing-page. Remote deleted: same names except feat/menu-page/feat/tables
 (already local-only). Remote deletion was atomic with expected-SHA leases;
 local deletion used -d after reachability checks. Only master and active
-ci/github-actions remain locally; remote CI branch appears with this push.
+ci/github-actions remain both locally and remotely. The active CI branch stays
+for PR #4 and master retains every removed tip.
 No commits lost: every removed tip remains reachable from master. Details in
 gitignored backend/.verify/branch-cleanup-result.json.
 
-**Next action:** finish the approved CI commit/push and PR, then verify hosted
-checks. Fix any actual runner issues, push before watching, and end the turn
-while pending. Keep ci/github-actions for its open PR; do not merge CI or change
-branch protection/deploy policy without the corresponding authorization. After
-first hosted pass, recommend making CI required through an approved ruleset.
-Backend remains manual; later product priorities: self-serve onboarding, plan
-gating, super-admin; payments deferred.
+**Next action:** ensure latest PR #4 checks are passing before any later
+user-authorized merge. Implementation/hosted verification and branch cleanup
+are complete; final evidence-only documentation is pushed separately and
+rechecks identical application/CI code. When its checks are pending, use the PR
+watch and end the turn; fix genuine failures within the existing CI publication
+scope. CI merge, required branch checks and CD policy still need explicit user
+authorization. Keep master/ci/github-actions; backend remains manual. Later:
+self-serve onboarding, plan gating, super-admin; payments deferred.
 
-**Changed / all uncommitted files:**
+**Changed / CI commit files (all committed/pushed):**
 
 - .github/workflows/ci.yml
 - backend/package.json (ci:env command)
@@ -146,12 +157,16 @@ gating, super-admin; payments deferred.
 - docs/DEPLOY-RUNBOOK.md
 - MULTI-TENANT-HANDOFF.md (includes prior advice-turn edits)
 
-No dependency/lockfile changes, application feature or schema migration. CI files
-are implemented; previous dashboard/reporting release is already on master.
+No dependency/lockfile changes, application feature or schema migration.
+CI implementation is committed/pushed at d3cc18b. The only final bookkeeping
+changes are docs/CI.md and MULTI-TENANT-HANDOFF.md; they form the evidence-only
+documentation commit, without changes to tested code. Branch cleanup report stays
+gitignored in backend/.verify/. Previous app release remains on master.
 
-**Blocker:** none for publication/cleanup. Hosted execution is the remaining
-verification; commit/push/PR are now explicitly approved. T3 PR detail reads may still use cached old
-GitHub scopes; the earlier ready/body/merge mutations succeeded. No watch active.
+**Blocker:** none for implementation/branch cleanup. Hosted implementation run
+is green. Native PR/CI tools work; no auth workaround needed. Verify the latest
+evidence-only commit's normal checks through the PR watcher before handback.
+No new release/deployment settings or required-check rules were changed.
 
 **Read, in order:** this section → docs/DEPLOY-RUNBOOK.md → docs/DRILL-LOG.md →
 docs/STAGING-DEPLOY-GUIDE.md → docs/BACKUP-RESTORE.md. Older sections below are

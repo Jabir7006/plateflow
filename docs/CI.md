@@ -60,5 +60,9 @@ lint/typechecks and all production builds (11 frontend routes). All nine
 migrations applied from an empty database, and the temporary server was stopped.
 
 The Node/Actions references and Docker image manifest were checked with their
-official upstream repositories/registry. Hosted Actions execution remains to be
-verified after an explicitly requested commit/push and pull request.
+official upstream repositories/registry. Hosted Actions execution passed on PR [#4](https://github.com/Jabir7006/plateflow/pull/4)
+at implementation commit `d3cc18b`: the Ubuntu runner started the pinned Docker
+service and completed the whole workflow, including 130 integration tests and
+all builds. See [the run](https://github.com/Jabir7006/plateflow/actions/runs/45636424048).
+Later documentation/code pushes trigger fresh checks; verify the current head
+again before merging or releasing it.
