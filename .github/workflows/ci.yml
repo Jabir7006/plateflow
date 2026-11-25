@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+  merge_group:
+    types: [checks_requested]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: CI
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:18.7@sha256:c699303802144847d238196173655dbbecf7a96aeca1565f2b02eb671a1f0b6b
+        env:
+          POSTGRES_USER: plateflow_ci
+          POSTGRES_DB: plateflow_ci
+          # This is a run-specific credential for a disposable, loopback-only DB.
+          POSTGRES_PASSWORD: ${{ github.run_id }}-${{ github.run_attempt }}
+        ports:
+          - 127.0.0.1:5432:5432
+        options: >-
+          --health-cmd "pg_isready -U plateflow_ci -d plateflow_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      HUSKY: "0"
+      DOTENV_CONFIG_PATH: /dev/null
+      NEXT_TELEMETRY_DISABLED: "1"
+      TZ: UTC
+      SHARP_IGNORE_GLOBAL_LIBVIPS: "1"
+      CI_DATABASE_PORT: "5432"
+      CI_POSTGRES_PASSWORD: ${{ github.run_id }}-${{ github.run_attempt }}
+
+    steps:
+      - name: Check out the tested revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up the repository Node version
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+
+      - name: Set up the repository pnpm version
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          cache: true
+
+      - name: Verify native Temporal
+        run: node -e 'if (!globalThis.Temporal?.Instant) throw new Error("Native Temporal is required")'
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Configure disposable CI environment
+        run: pnpm --filter backend ci:env
+
+      - name: Generate Prisma client
+        run: pnpm --filter backend db:generate
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm test:unit
+
+      - name: Apply migrations to the CI database
+        run: pnpm --filter backend db:migrate:deploy
+
+      - name: Integration tests
+        run: pnpm test:integration
+
+      - name: Production builds
+        run: pnpm build

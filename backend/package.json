@@ -10,6 +10,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit -p tsconfig.all.json",
     "format": "prettier --write \"src/**/*.ts\" \"prisma/**/*.ts\"",
+    "ci:env": "tsx scripts/ci-env.ts",
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:generate": "prisma generate",

@@ -215,6 +215,12 @@ Re-check this whenever you add a CDN, load balancer, or custom proxy.
 
 ## 5. Pre-deploy checklist
 
+GitHub Actions CI is defined in `.github/workflows/ci.yml`; its check runs lint,
+typechecks, tests on disposable Postgres and production builds. See [CI](./CI.md)
+for configuration and verification. A passing CI check is one release gate;
+database-target verification and staging acceptance below remain required. CI
+does not deploy the application or enforce branch protection by itself.
+
 Run from the repository root unless noted.
 
 ```bash
