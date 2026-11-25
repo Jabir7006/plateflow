@@ -4,7 +4,6 @@ import {
   History,
   LayoutGrid,
   Table2,
-  Users,
   UtensilsCrossed,
 } from "lucide-react"
 
@@ -22,6 +21,5 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Menu", href: "/menu", icon: UtensilsCrossed },
   { label: "Orders", href: "/orders", icon: ClipboardList },
   { label: "History", href: "/orders/history", icon: History },
-  { label: "Staff", href: "/staff", icon: Users },
   { label: "Tables", href: "/tables", icon: Table2 },
 ]
