@@ -1,7 +1,7 @@
 # PlateFlow — standing handoff (resume here)
 
 **Repo:** `/home/jabir/Projects/plateflow` — default branch `master`
-**Updated:** 2026-11-25 · authorized commit/push/PR; release gates being checked
+**Updated:** 2026-11-25 · release committed/pushed; PR #3 open, merge gated
 **Live staging:** API `https://plateflow-staging-api.onrender.com` · web
 `https://plateflow-nu.vercel.app` · Neon branch `staging`
 
@@ -13,9 +13,11 @@
 
 ## 0. Resume here
 
-**Status — approved fixes green; commit/push/merge explicitly authorized.**
-Branch `feat/dashboard-live-data`, base `7c79af5`. Staff navigation committed as
-`62631a3`; dashboard/reporting release commit and PR are being prepared.
+**Status — committed and pushed; draft PR #3 open; merge/release pending.**
+Branch `feat/dashboard-live-data`, base `7c79af5`. Commits: `62631a3` (Staff nav),
+`4157023` (live dashboard, timezone reporting and review fixes). PR:
+https://github.com/Jabir7006/plateflow/pull/3. User explicitly authorized
+commit/push/merge; release gates still apply. No feature changes remain uncommitted.
 Original dashboard/nav/category work, timezone reporting and Node/native Temporal
 upgrade remain complete. User approved all core/low-priority refinements and
 custom-range waiting state. No approval/implementation decisions remain pending.
@@ -59,26 +61,43 @@ tables/orders. No new migration in this follow-up. No commit/push/deploy.
 Revised UI/public browser acceptance remains after release; original browser
 notes are historical evidence, not a recheck of these later refinements.
 
-**Release execution (2026-11-25):** user explicitly said "koro" after the
-commit/push/PR and gated-merge sequence. This authorization persists; do not
-ask again to commit/push/merge. Staff navigation commit `62631a3` passed the
-actual pre-commit backend/frontend lint and typecheck hooks. GitHub has no
-Actions workflows; previous master has a successful Vercel deployment status.
-Remote master is still `7c79af5`. Render and Vercel settings both redirect to
-login in the available browser, and no local platform API tokens were found.
-Actual deploy branches/auto-deploy/runtime settings remain unverified. No live
-settings, deployment or migration has been changed. Secret connection file
-`~/.config/plateflow/neon-staging.out` was tightened to mode 600 locally.
+**Release execution (2026-11-25):** commit/push and linked draft PR #3 complete.
+Both actual commit hooks passed backend/frontend lint, shared build and both
+typechecks. Configured local secret values were checked against staged files:
+none found. GitHub has no Actions workflows. Vercel commit status and Preview
+Comments check both passed for feature SHA `4157023`; this confirms preview
+build completion, not runtime logs or public staging acceptance. Remote master
+remains `7c79af5`.
 
-**Next action:** finish feature commit/push and PR, then inspect its deployment
-checks. Obtain Render/Vercel access through private secret inputs to verify
-actual deploy branch/auto-deploy and Node readiness. Before merge/release apply
-the timezone migration on the verified staging DB, preserve existing UTC zones
-until reviewed, deploy backend then frontend and repeat public browser/tenant
-acceptance. Do not merge while these release gates remain unverified. Later
-priorities: self-serve signup, plan gating, super-admin; payments remain deferred.
+Read-only Neon audit via existing API key verified `staging` is non-default and
+unprotected and that the direct URL matches its writable endpoint (TLS verified).
+There are 8 applied migrations, no Restaurant.timeZone column, and only
+staging-one/staging-two tenants. Timezone migration remains pending. No live
+settings, deployment or migration changed. Existing UTC backfill stays approved;
+do not infer real tenants' zones or change them without a scoped review.
 
-**Changed / release files (nav already committed; rest entering feature commit):**
+Render and Vercel settings both redirect to login; no local platform API tokens.
+Private two-field token request timed out without an answer. Obtain access via
+private secret inputs when resuming; never ask for tokens in chat. The T3 PR
+read tool failed because its GraphQL query requires read:org/read:discussion;
+the configured GitHub token lacks those scopes. Commit status/check-run REST
+reads succeeded, but detailed PR checks/reviews remain unread through the tool.
+All browser tabs opened for this check were closed. The final documentation
+push triggers another Vercel preview; if pending, watch checks on PR #3.
+Inspect the latest head/checks and watcher when resuming; merge still requires
+the separate platform/runtime/migration/acceptance gates above.
+Secret connection file ~/.config/plateflow/neon-staging.out is now mode 600.
+
+**Next action:** obtain authenticated Render/Vercel access and verify actual
+deploy branches, auto-deploy policy and target Node versions/build logs. Resolve
+PR-tool read scopes for full check/review state. Apply additive timezone migration
+on the verified staging DB using migrate deploy, preserve UTC until tenant zones
+are reviewed, deploy backend then frontend and repeat public browser/tenant
+acceptance. Mark PR ready and merge after the release gates pass. Do not ask
+again for commit/push/merge approval; it already persists. Later: self-serve
+signup, plan gating, super-admin; payments remain deferred.
+
+**Changed / committed release files (two feature commits above):**
 
 - `.node-version`
 - `MULTI-TENANT-HANDOFF.md`
@@ -140,11 +159,12 @@ priorities: self-serve signup, plan gating, super-admin; payments remain deferre
 Scratch backend/.verify/dashboard-browser.ts remains gitignored; it uses the
 disposable test DB and was not run for these latest UI refinements.
 
-**Blocker:** Render/Vercel authenticated access is missing, so target runtime,
-deploy branch and auto-deploy readiness cannot yet be verified. Merge/release
-wait on these gates, not on renewed authorization. Frontend build needs matching
-NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME from existing backend env; frontend/.env.local
-was not edited.
+**Blocker:** Render/Vercel authenticated access is missing; target runtime,
+deploy branch and auto-deploy readiness remain unverified, and staging migration
+is pending. PR read integration also lacks required GitHub scopes. Merge waits
+on these gates, not renewed authorization. No uncommitted application files;
+this handoff and docs/NEXT-STEPS.md are included in the release-status
+documentation commit. Frontend/.env.local was not edited.
 
 **Read, in order:**
 

@@ -27,8 +27,11 @@ and mobile navigation. Fixtures and temporary credentials were removed.
 
 **Release authorized (2026-11-25):** commit/push, PR and merge after runtime,
 migration and staging acceptance gates were explicitly requested. Staff nav is
-committed; the remaining release is being prepared. Platform settings currently
-require login. The new dashboard API and nav have not been deployed. Current resume state and changed files are in
+committed as 62631a3; live dashboard/reporting is committed as 4157023 and
+pushed. Draft PR: https://github.com/Jabir7006/plateflow/pull/3. Vercel preview
+status passed. Platform settings require login, staging still has 8 migrations
+and no timezone column; public acceptance and merge remain gated. The new
+dashboard API and nav have not been deployed to public staging. Current resume state and changed files are in
 `MULTI-TENANT-HANDOFF.md` §0.
 
 **Approved review follow-up (2026-11-24):** the user chose restaurant timezones,
