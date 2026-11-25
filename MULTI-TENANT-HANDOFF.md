@@ -1,7 +1,7 @@
 # PlateFlow — standing handoff (resume here)
 
 **Repo:** `/home/jabir/Projects/plateflow` — default branch `master`
-**Updated:** 2026-11-25 · PR #3 merged; staging release verified
+**Updated:** 2026-11-25 · CI publication authorized; obsolete branches cleaned
 **Live staging:** API `https://plateflow-staging-api.onrender.com` · web
 `https://plateflow-nu.vercel.app` · Neon branch `staging`
 
@@ -13,12 +13,48 @@
 
 ## 0. Resume here
 
-**Status — green: PR #3 merged, public staging release verified.**
-PR https://github.com/Jabir7006/plateflow/pull/3 merged as 008e43b on 2026-11-25.
-Working branch is master. User authorized commit/push/merge, then explicitly
-approved staging rollout, Render config changes and DIRECT_URL correction.
-Release documentation follows the merge; git log -1 shows its current head.
-No application source changes were needed during this release turn.
+**Status — CI commit/push/PR authorized; publication in progress.**
+Base f3ab0e7 (origin/master). User explicitly approved CI implementation and
+asked whether release gates mean CD. Explained: CI checks revisions; release
+gates are deployment preconditions; CD automates deployment around them.
+User now explicitly authorized CI commit/push, opening a PR/hosted run and
+deleting unnecessary branches. CI merge, required branch checks and CD changes
+have not been authorized.
+No CD workflow or live platform settings changed. Previous release authorization
+was fulfilled with PR #3 and the release-doc push; do not infer it for new work.
+
+CI job defined in .github/workflows/ci.yml: PR/push master, merge-group, manual;
+Node from .node-version (26.13.1), pnpm from root packageManager (12.4.1), verified
+Action commits and Postgres18.7 manifest digest pinned. Frozen install, native
+Temporal check, generated Prisma, lint/typechecks, unit tests, migrate deploy on
+loopback-only disposable Postgres, integration tests and all production builds.
+Read-only token permissions, no checkout credential persistence, 15min timeout,
+concurrency cancellation and dependency-store cache. UTC and Sharp's bundled
+binaries make runner configuration explicit. No external DB/provider secrets.
+
+backend/scripts/ci-env.ts creates test-only credentials, derives all three DB
+URLs together from the job's fixed loopback service, masks credentials/DSNs and
+exports through GITHUB_ENV. It rejects execution outside Actions, invalid ports,
+multiline credentials and invalid export paths. Node_ENV remains unset so Next
+builds select production. Tenancy migration supplies the baseline restaurant;
+no seed or extra business fixtures needed.
+
+**CI validation:** actionlint1.7.12 passes; upstream Action refs and Docker image
+manifest verified. Full command sequence passed in a fresh checkout outside the
+workspace with no local .env/generated client, on UTC/Node26.13.1/pnpm12.4.1 and
+local Postgres18.7: unit **222 / 27 files**, integration **130 / 11 files,
+1 expected legacy-seed skip**; lint/typechecks and shared/backend/frontend
+production builds pass (11 frontend routes). All 9 migrations applied from empty
+DB. Temporary Postgres stopped and checkout/DB data removed. Sanitized logs and
+report under backend/.verify/ci-validation-logs/ and ci-clean-result.json.
+Hosted GitHub Actions execution is not yet verified; Docker service startup and
+Action execution need the first pushed PR run. Local tests used Postgres binaries
+because this workstation has no Docker. No local runtime/provider keys copied.
+
+**Last staging release — green (unchanged):** PR
+https://github.com/Jabir7006/plateflow/pull/3 merged as008e43b; release docs pushed
+at f3ab0e7. Final master Vercel deployment dpl_6RQc6LH4hnoWZdzddCeZcTf1sxeX was
+READY on26.x; public health/login200. Prior feature acceptance is below.
 
 **Live release:** backend Render dep-dc3c8su8bjmc73f99oug is live at tested feature
 SHA 696679b; logs confirm Node 26.13.1. Frontend Vercel production-target
@@ -79,34 +115,49 @@ Private rollback settings: ~/.config/plateflow/releases/20261125/render-rollback
 Staging credentials remain ~/.config/plateflow/staging.env (600); connection
 file neon-staging.out was also tightened to 600. Never print secret contents.
 
-**Next action:** release work is complete after documentation push/runtime status
-readback. User chooses the next priority. Recommended before enabling backend
-auto-deploy: meaningful backend CI and migration release gates. Later product
-priorities remain self-serve onboarding, plan gating and super-admin; payments
-stay deferred. Do not infer a new implementation task from this backlog.
+**Branch cleanup (2026-11-25):** user explicitly requested it. All candidates
+had zero commits outside origin/master; no open PR/other worktree/deployment used
+them. Render/Vercel branch settings were read back as master. Deleted local:
+dev, diner-menu-redesign, feat/dashboard-live-data, feat/menu-page,
+feat/multi-tenant-foundation, feat/public-surface-hardening, feat/tables,
+landing-page. Remote deleted: same names except feat/menu-page/feat/tables
+(already local-only). Remote deletion was atomic with expected-SHA leases;
+local deletion used -d after reachability checks. Only master and active
+ci/github-actions remain locally; remote CI branch appears with this push.
+No commits lost: every removed tip remains reachable from master. Details in
+gitignored backend/.verify/branch-cleanup-result.json.
 
-**Changed / release documentation:**
+**Next action:** finish the approved CI commit/push and PR, then verify hosted
+checks. Fix any actual runner issues, push before watching, and end the turn
+while pending. Keep ci/github-actions for its open PR; do not merge CI or change
+branch protection/deploy policy without the corresponding authorization. After
+first hosted pass, recommend making CI required through an approved ruleset.
+Backend remains manual; later product priorities: self-serve onboarding, plan
+gating, super-admin; payments deferred.
 
-- MULTI-TENANT-HANDOFF.md
+**Changed / all uncommitted files:**
+
+- .github/workflows/ci.yml
+- backend/package.json (ci:env command)
+- backend/scripts/ci-env.ts
+- backend/tests/unit/scripts/ci-env.test.ts
+- backend/tests/integration/ci-environment.test.ts
+- docs/CI.md
 - docs/DEPLOY-RUNBOOK.md
-- docs/DRILL-LOG.md
-- docs/NEXT-STEPS.md
-- docs/STAGING-DEPLOY-GUIDE.md
+- MULTI-TENANT-HANDOFF.md (includes prior advice-turn edits)
 
-These five files are the post-merge documentation commit. Application changes
-are committed in PR #3 (62631a3 nav, 4157023 feature, 696679b earlier release docs).
-No new application files or schema migration in the release turn.
+No dependency/lockfile changes, application feature or schema migration. CI files
+are implemented; previous dashboard/reporting release is already on master.
 
-**Blocker:** none for the release. T3 PR detail reads still use cached old GitHub
-scopes despite refreshed CLI auth. Reads used fresh CLI-token HTTP API fallback;
-T3 ready/body/merge mutations succeeded. No PR watch remains necessary after merge.
-No tests rerun for documentation alone beyond mandatory commit hooks.
+**Blocker:** none for publication/cleanup. Hosted execution is the remaining
+verification; commit/push/PR are now explicitly approved. T3 PR detail reads may still use cached old
+GitHub scopes; the earlier ready/body/merge mutations succeeded. No watch active.
 
 **Read, in order:** this section → docs/DEPLOY-RUNBOOK.md → docs/DRILL-LOG.md →
 docs/STAGING-DEPLOY-GUIDE.md → docs/BACKUP-RESTORE.md. Older sections below are
 background; this section wins when status differs.
 
-**Hard rules:** commit/push only on explicit request (this release is authorized);
+**Hard rules:** commit/push only on explicit request (CI publication is now authorized);
 no secrets/DB URLs/passwords in chat or git; fresh checkout generates Prisma
 first; migrate deploy only, never migrate dev or db:seed on shared environments;
 real feature tests; preserve tenant isolation; no payments/billing work yet.
