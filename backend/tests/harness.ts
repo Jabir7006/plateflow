@@ -9,6 +9,7 @@ import { io as connect, type Socket } from "socket.io-client";
 import { hashValue } from "../src/utils/bcrypt.js";
 import { randomId, sha256 } from "../src/utils/crypto.js";
 import type { Role, UserStatus } from "../src/generated/prisma/enums.js";
+import { readJson, type TestJsonBody } from "./http-json.js";
 
 // Shared harness for the integration suites: real app, real database, real
 // sockets — only the data is disposable. Everything created here is tracked so
@@ -41,7 +42,8 @@ const fixtures: { slug: string; email: string }[] = [];
 // Runs the real admin-provisioning CLI, so the suite exercises the same path an
 // operator uses rather than inserting rows behind its back.
 export async function provisionRestaurant(
-  name: string
+  name: string,
+  timeZone = "UTC"
 ): Promise<Provisioned & { output: string }> {
   const tag = suffix();
   const slug = `test-${tag}`;
@@ -59,6 +61,8 @@ export async function provisionRestaurant(
       name,
       "--slug",
       slug,
+      "--timezone",
+      timeZone,
       "--owner-name",
       `Owner ${tag}`,
       "--owner-email",
@@ -147,11 +151,17 @@ export function api(baseUrl: string) {
       ...init,
       signal: AbortSignal.timeout(30_000),
     });
-    const body = await response.json().catch(() => null);
+    const body = await readJson<TestJsonBody>(response).catch(() => null);
 
     if (response.status !== expect) {
       throw new Error(
         `${init.method ?? "GET"} ${path} expected ${expect}, got ${response.status}: ${body?.message ?? ""}`
+      );
+    }
+
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      throw new Error(
+        `${init.method ?? "GET"} ${path} expected a JSON object response`
       );
     }
 
@@ -177,7 +187,10 @@ export function removeIssuedRefreshTokens() {
 
 // The response sets the same cookie name on several paths — one live, the rest
 // cleared — so the live value is the last non-empty one.
-export function readCookie(response: Response, name: string): string | undefined {
+export function readCookie(
+  response: Response,
+  name: string
+): string | undefined {
   const values = response.headers
     .getSetCookie()
     .filter((header) => header.startsWith(`${name}=`))
@@ -199,7 +212,8 @@ export async function login(
   });
 
   const accessToken = readCookie(response, "accessToken");
-  if (!accessToken) throw new Error(`Login for ${email} returned no access cookie`);
+  if (!accessToken)
+    throw new Error(`Login for ${email} returned no access cookie`);
 
   const refreshToken = readCookie(response, "refreshToken");
   if (refreshToken) issuedRefreshTokenHashes.push(sha256(refreshToken));
@@ -307,7 +321,10 @@ export function nextEvent<T>(
   });
 }
 
-export function waitForConnect(socket: Socket, timeoutMs = 15_000): Promise<void> {
+export function waitForConnect(
+  socket: Socket,
+  timeoutMs = 15_000
+): Promise<void> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(
       () => reject(new Error("socket connect timeout")),
@@ -324,7 +341,10 @@ export function waitForConnect(socket: Socket, timeoutMs = 15_000): Promise<void
   });
 }
 
-export function waitForConnectError(socket: Socket, timeoutMs = 15_000): Promise<string> {
+export function waitForConnectError(
+  socket: Socket,
+  timeoutMs = 15_000
+): Promise<string> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(
       () => reject(new Error("socket was not rejected within the timeout")),
@@ -336,7 +356,9 @@ export function waitForConnectError(socket: Socket, timeoutMs = 15_000): Promise
     });
     socket.once("connect", () => {
       clearTimeout(timer);
-      reject(new Error("socket connected but the handshake should have failed"));
+      reject(
+        new Error("socket connected but the handshake should have failed")
+      );
     });
   });
 }
@@ -393,7 +415,10 @@ export async function removeFixtures() {
     `SELECT id FROM "Restaurant" WHERE slug = ANY($1::text[])
      UNION
      SELECT "restaurantId" AS id FROM "User" WHERE email = ANY($2::text[])`,
-    [fixtures.map((fixture) => fixture.slug), fixtures.map((fixture) => fixture.email)]
+    [
+      fixtures.map((fixture) => fixture.slug),
+      fixtures.map((fixture) => fixture.email),
+    ]
   );
 
   await removeRestaurants(rows.map((row) => row.id));

@@ -62,18 +62,18 @@ describe("placeOrderSchema", () => {
   });
 
   it("accepts the quantity bounds", () => {
-    expect(placeOrderSchema.safeParse(order([line({ quantity: 1 })])).success).toBe(
-      true
-    );
-    expect(placeOrderSchema.safeParse(order([line({ quantity: 99 })])).success).toBe(
-      true
-    );
+    expect(
+      placeOrderSchema.safeParse(order([line({ quantity: 1 })])).success
+    ).toBe(true);
+    expect(
+      placeOrderSchema.safeParse(order([line({ quantity: 99 })])).success
+    ).toBe(true);
   });
 
   it("trims the note and turns an empty note into null", () => {
-    expect(placeOrderSchema.parse(order([line()], "  window seat ")).body.note).toBe(
-      "window seat"
-    );
+    expect(
+      placeOrderSchema.parse(order([line()], "  window seat ")).body.note
+    ).toBe("window seat");
     expect(placeOrderSchema.parse(order([line()], "   ")).body.note).toBeNull();
   });
 
@@ -137,7 +137,8 @@ describe("orderHistoryQuerySchema", () => {
 
   it("coerces numeric query strings", () => {
     expect(
-      orderHistoryQuerySchema.parse({ query: { page: "3", pageSize: "50" } }).query
+      orderHistoryQuerySchema.parse({ query: { page: "3", pageSize: "50" } })
+        .query
     ).toMatchObject({ page: 3, pageSize: 50 });
   });
 
@@ -161,7 +162,8 @@ describe("orderHistoryQuerySchema", () => {
 
   it("accepts a real status filter and rejects an invented one", () => {
     expect(
-      orderHistoryQuerySchema.parse({ query: { status: "SERVED" } }).query.status
+      orderHistoryQuerySchema.parse({ query: { status: "SERVED" } }).query
+        .status
     ).toBe("SERVED");
     expect(
       orderHistoryQuerySchema.safeParse({ query: { status: "DONE" } }).success
@@ -180,7 +182,8 @@ describe("orderHistoryQuerySchema", () => {
       }).success
     ).toBe(true);
     expect(
-      orderHistoryQuerySchema.safeParse({ query: { from: "2026-09-25" } }).success
+      orderHistoryQuerySchema.safeParse({ query: { from: "2026-09-25" } })
+        .success
     ).toBe(false);
   });
 
@@ -207,14 +210,66 @@ describe("orderHistoryQuerySchema", () => {
 });
 
 describe("orderStatsQuerySchema", () => {
+  it.each(["today", "7d", "30d", "all"])(
+    "accepts the restaurant calendar preset %s",
+    (preset) => {
+      expect(
+        orderStatsQuerySchema.safeParse({ query: { preset } }).success
+      ).toBe(true);
+    }
+  );
+
+  it("requires a date for custom ranges and allows either one-sided bound", () => {
+    for (const schema of [orderStatsQuerySchema, orderHistoryQuerySchema]) {
+      expect(messageOf(schema.safeParse({ query: { preset: "custom" } }))).toBe(
+        "Choose at least a start or end date for a custom range"
+      );
+      expect(
+        schema.safeParse({
+          query: { preset: "custom", fromDate: "", toDate: "" },
+        }).success
+      ).toBe(false);
+      expect(
+        schema.safeParse({
+          query: { preset: "custom", fromDate: "2026-11-24" },
+        }).success
+      ).toBe(true);
+      expect(
+        schema.safeParse({ query: { preset: "custom", toDate: "2026-11-24" } })
+          .success
+      ).toBe(true);
+    }
+  });
+
+  it("accepts real custom calendar dates and rejects invalid/ambiguous ranges", () => {
+    expect(
+      orderHistoryQuerySchema.safeParse({
+        query: {
+          preset: "custom",
+          fromDate: "2026-11-01",
+          toDate: "2026-11-24",
+        },
+      }).success
+    ).toBe(true);
+    for (const query of [
+      { preset: "custom", fromDate: "2026-02-30" },
+      { preset: "custom", fromDate: "2026-11-25", toDate: "2026-11-24" },
+      { preset: "today", from: "2026-11-24T00:00:00Z" },
+      { preset: "today", fromDate: "2026-11-24" },
+      { fromDate: "2026-11-24" },
+      { preset: "invalid" },
+    ])
+      expect(orderStatsQuerySchema.safeParse({ query }).success).toBe(false);
+  });
   it("accepts an open-ended or bounded range", () => {
     expect(orderStatsQuerySchema.parse({ query: {} }).query).toEqual({
       from: undefined,
       to: undefined,
     });
     expect(
-      orderStatsQuerySchema.safeParse({ query: { from: "2026-09-25T00:00:00Z" } })
-        .success
+      orderStatsQuerySchema.safeParse({
+        query: { from: "2026-09-25T00:00:00Z" },
+      }).success
     ).toBe(true);
   });
 

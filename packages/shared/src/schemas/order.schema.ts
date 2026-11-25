@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { hasCustomReportingDates } from "../utils/reporting-state.js";
 
 const requiredId = (label: string) =>
   z.string(`${label} id is required`).trim().min(1, `${label} id is required`);
@@ -89,7 +90,10 @@ export type UpdateOrderStatusSchema = z.infer<typeof updateOrderStatusSchema>;
 // at a sane size, and both are clamped so a client can't ask for the whole table.
 const historyPage = z.preprocess(
   (value) => (value === undefined || value === "" ? 1 : value),
-  z.coerce.number().int("Page must be a whole number").min(1, "Page must be at least 1")
+  z.coerce
+    .number()
+    .int("Page must be a whole number")
+    .min(1, "Page must be at least 1"),
 );
 
 const historyPageSize = z.preprocess(
@@ -98,22 +102,21 @@ const historyPageSize = z.preprocess(
     .number()
     .int("Page size must be a whole number")
     .min(1, "Page size must be at least 1")
-    .max(100, "Page size can't exceed 100")
+    .max(100, "Page size can't exceed 100"),
 );
 
 // A date-range bound on createdAt, as a full ISO-8601 date-time (offset or Z).
-// The API deals in instants, not calendar dates: the caller (the staff UI, which
-// knows the restaurant's timezone) computes the local day boundaries and sends
-// them as instants. That keeps the server timezone-agnostic and avoids collapsing
-// a plain date to UTC midnight, which would silently drop the range's end day.
+// Kept for older explicit-instant callers. New UI calendar ranges are resolved
+// by the server using the restaurant's stored IANA timezone.
 const dateBound = z.preprocess(
-  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  (value) =>
+    typeof value === "string" && value.trim() === "" ? undefined : value,
   z.iso
     .datetime({
       offset: true,
       error: "Enter an ISO-8601 date-time, e.g. 2026-09-25T18:30:00Z",
     })
-    .optional()
+    .optional(),
 );
 
 // The status filter. A cleared "All" filter sends `status=` — normalise that
@@ -121,7 +124,7 @@ const dateBound = z.preprocess(
 // treat "", rather than 400ing it as an invalid status.
 const statusFilter = z.preprocess(
   (value) => (value === "" ? undefined : value),
-  z.enum(orderStatusValues, "That isn't a valid order status").optional()
+  z.enum(orderStatusValues, "That isn't a valid order status").optional(),
 );
 
 // A reversed range (from after to) matches nothing, which reads as a genuinely
@@ -141,6 +144,46 @@ const rangeError = {
   path: ["to"],
 };
 
+const optionalDate = z.preprocess(
+  (value) => (value === "" ? undefined : value),
+  z.iso.date({ error: "Enter a valid calendar date (YYYY-MM-DD)" }).optional(),
+);
+const reportRangeShape = {
+  from: dateBound,
+  to: dateBound,
+  preset: z.enum(["today", "7d", "30d", "all", "custom"]).optional(),
+  fromDate: optionalDate,
+  toDate: optionalDate,
+};
+
+const validReportRange = (range: {
+  from?: string;
+  to?: string;
+  preset?: string;
+  fromDate?: string;
+  toDate?: string;
+}) => {
+  if (
+    (range.from || range.to) &&
+    (range.preset || range.fromDate || range.toDate)
+  )
+    return false;
+  if ((range.fromDate || range.toDate) && range.preset !== "custom")
+    return false;
+  if (range.fromDate && range.toDate && range.fromDate > range.toDate)
+    return false;
+  return true;
+};
+const calendarRangeError = {
+  message:
+    "Use one calendar preset or an explicit ISO range; custom dates must be ordered",
+  path: ["preset"],
+};
+const customDateRequiredError = {
+  message: "Choose at least a start or end date for a custom range",
+  path: ["fromDate"],
+};
+
 // GET /api/v1/orders/history — the paged, filterable record behind the board.
 export const orderHistoryQuerySchema = z.object({
   query: z
@@ -148,20 +191,22 @@ export const orderHistoryQuerySchema = z.object({
       page: historyPage,
       pageSize: historyPageSize,
       status: statusFilter,
-      from: dateBound,
-      to: dateBound,
+      ...reportRangeShape,
     })
-    .refine(orderedRange, rangeError),
+    .refine(orderedRange, rangeError)
+    .refine(validReportRange, calendarRangeError)
+    .refine(hasCustomReportingDates, customDateRequiredError),
 });
 
 // GET /api/v1/orders/stats — sales summary over an optional date range.
 export const orderStatsQuerySchema = z.object({
   query: z
     .object({
-      from: dateBound,
-      to: dateBound,
+      ...reportRangeShape,
     })
-    .refine(orderedRange, rangeError),
+    .refine(orderedRange, rangeError)
+    .refine(validReportRange, calendarRangeError)
+    .refine(hasCustomReportingDates, customDateRequiredError),
 });
 
 export type OrderHistoryQuerySchema = z.infer<typeof orderHistoryQuerySchema>;

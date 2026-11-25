@@ -1,7 +1,7 @@
 # PlateFlow — standing handoff (resume here)
 
 **Repo:** `/home/jabir/Projects/plateflow` — default branch `master`
-**Updated:** 2026-11-22 · landing-page release reviewed against current `master`
+**Updated:** 2026-11-25 · authorized commit/push/PR; release gates being checked
 **Live staging:** API `https://plateflow-staging-api.onrender.com` · web
 `https://plateflow-nu.vercel.app` · Neon branch `staging`
 
@@ -13,30 +13,138 @@
 
 ## 0. Resume here
 
-**Status — green.** The landing-page redesign is complete and reviewed against
-current `master`, preserving the tenancy and live-ordering work. The page uses
-actual light/dark diner screenshots, accessible mobile navigation and lightweight
-one-time motion. Review corrected stale “in development” labels because ordering
-and kitchen features are implemented. Lint, typecheck, frontend production build,
-175 unit tests and 110 integration tests pass (1 integration test skipped).
-Production browser checks pass at 320–1440px, with a working live-menu link and
-no page errors. Live staging review found the old fallback demo token returned
-404; the fallback now uses an existing, verified nonempty staging table.
-`NEXT_PUBLIC_DEMO_MENU_PATH` still overrides it for each deployment. No database
-migrations or customer-data changes.
+**Status — approved fixes green; commit/push/merge explicitly authorized.**
+Branch `feat/dashboard-live-data`, base `7c79af5`. Staff navigation committed as
+`62631a3`; dashboard/reporting release commit and PR are being prepared.
+Original dashboard/nav/category work, timezone reporting and Node/native Temporal
+upgrade remain complete. User approved all core/low-priority refinements and
+custom-range waiting state. No approval/implementation decisions remain pending.
 
-**Next action:** no landing-page implementation remains. Confirm the automatic
-Vercel deployment after publication. The agreed next product priority remains
-the business layer (self-serve signup, plan gating and super-admin); payments
-stay deferred until after the pilot.
+Current reporting: required per-restaurant IANA timeZone with UTC compatibility
+backfill; provisioning requires --timezone. Dashboard/history/stats use server-
+resolved restaurant days and return actual period/timezone. Calendar upper bounds
+are exclusive next-midnight (DST-aware); old explicit ISO bounds stay inclusive.
+Sales mean SERVED orders placed in the selected period; old timestamps unchanged.
+Migration applied only to TEST_DATABASE_URL (9 migrations/no drift from prior
+verification); dev/staging/production unchanged. Existing real zones must be
+verified before rollout. No payment/servedAt model was added.
 
-**Changed in this session:** `frontend/app/page.tsx`,
-`frontend/features/landing/` (copy, styling, actual menu preview, accessible mobile
-navigation and one-time motion), two WebP captures in `frontend/public/images/`,
-`frontend/.env.example` demo-path documentation, and this handoff. Earlier local `.gitignore` and backend ESLint scratch-ignore
-edits are already covered by current master. The user explicitly authorized push
-and merge to `master`; Git credentials have repository push access. The GitHub PR
-integration needs an extra `read:org` scope, so publication can use Git directly.
+Node: local fnm default/lts-latest + repo .node-version are 26.13.1 (Lithium);
+pnpm 12.4.1. Root engine range >=26.13.1 <27. Backend uses native Temporal and
+fails clearly when absent; no polyfill. Frontend package engines now select
+Vercel 26.x; the platform controls minor/patch updates, unlike the exact local/
+Render pin. Live Render/Vercel settings/runtime were not edited. pnpm engine
+mismatch at install is still a warning; no engine-strict config was added.
+
+Re-review implementation: backend libs only ES2022 + ESNext.Temporal. Test JSON
+flexibility lives in tests/http-json.ts, not global DOM typing; compile-only
+assertions prevent window/document globals. Integration stubs reportingClock
+only: real Date/HTTP/socket/pg deadlines advance. Timezone rows are not cached;
+invalid config returns readable AppError 500, and a scoped correction is observed
+immediately. Validated/scoped repair preview is in DEPLOY-RUNBOOK.md §12.1.
+OrderStats compatibility bound aliases now document exclusivity.
+
+UI: 3s event throttle with trailing guarantee and immediate manual Refresh;
+oldest 5 live orders + View all. Header date slot has stable loading dimensions.
+Matching history/sales periods share one label; different cached periods keep
+own labels until aligned, preserving role/error context. Empty Custom shows a
+neutral choose-date hint, disables both queries and is rejected by the API;
+either one-sided bound remains valid. No new frontend test runner.
+
+Final verification on Node26: unit **209 passed / 26 files**; integration
+**123 passed / 10 files, 1 skipped**, 153.65s. Backend/frontend lint/typecheck and
+both production builds pass (frontend 11 routes). Shared build and git diff
+--check pass. Post-suite test DB audit: 1 baseline restaurant, 0 users/items/
+tables/orders. No new migration in this follow-up. No commit/push/deploy.
+Revised UI/public browser acceptance remains after release; original browser
+notes are historical evidence, not a recheck of these later refinements.
+
+**Release execution (2026-11-25):** user explicitly said "koro" after the
+commit/push/PR and gated-merge sequence. This authorization persists; do not
+ask again to commit/push/merge. Staff navigation commit `62631a3` passed the
+actual pre-commit backend/frontend lint and typecheck hooks. GitHub has no
+Actions workflows; previous master has a successful Vercel deployment status.
+Remote master is still `7c79af5`. Render and Vercel settings both redirect to
+login in the available browser, and no local platform API tokens were found.
+Actual deploy branches/auto-deploy/runtime settings remain unverified. No live
+settings, deployment or migration has been changed. Secret connection file
+`~/.config/plateflow/neon-staging.out` was tightened to mode 600 locally.
+
+**Next action:** finish feature commit/push and PR, then inspect its deployment
+checks. Obtain Render/Vercel access through private secret inputs to verify
+actual deploy branch/auto-deploy and Node readiness. Before merge/release apply
+the timezone migration on the verified staging DB, preserve existing UTC zones
+until reviewed, deploy backend then frontend and repeat public browser/tenant
+acceptance. Do not merge while these release gates remain unverified. Later
+priorities: self-serve signup, plan gating, super-admin; payments remain deferred.
+
+**Changed / release files (nav already committed; rest entering feature commit):**
+
+- `.node-version`
+- `MULTI-TENANT-HANDOFF.md`
+- `backend/prisma/create-restaurant.ts`
+- `backend/prisma/migrations/20261124180000_restaurant_reporting_timezone/migration.sql`
+- `backend/prisma/schema.prisma`
+- `backend/src/app.ts`
+- `backend/src/lib/reporting-clock.ts`
+- `backend/src/lib/reporting-period.ts`
+- `backend/src/modules/dashboard/dashboard.controller.ts`
+- `backend/src/modules/dashboard/dashboard.routes.ts`
+- `backend/src/modules/dashboard/dashboard.service.ts`
+- `backend/src/modules/order/order.service.ts`
+- `backend/src/modules/order/reporting.service.ts`
+- `backend/tests/harness.ts`
+- `backend/tests/http-json.ts`
+- `backend/tests/integration/dashboard-summary.test.ts`
+- `backend/tests/typechecks/server-runtime.ts`
+- `backend/tests/unit/dashboard/summary.test.ts`
+- `backend/tests/unit/lib/reporting-period.test.ts`
+- `backend/tests/unit/lib/restaurant-timezone-cli.test.ts`
+- `backend/tests/unit/middlewares/upload.test.ts`
+- `backend/tests/unit/schemas/order.schema.test.ts`
+- `backend/tests/unit/utils/refresh-throttle.test.ts`
+- `backend/tests/unit/utils/reporting-state.test.ts`
+- `backend/tsconfig.json`
+- `docs/DEPLOY-RUNBOOK.md`
+- `docs/DRILL-LOG.md`
+- `docs/NEXT-STEPS.md`
+- `docs/STAGING-DEPLOY-GUIDE.md`
+- `frontend/features/dashboard/api.ts`
+- `frontend/features/dashboard/components/dashboard-skeleton.tsx`
+- `frontend/features/dashboard/components/dashboard-view.tsx`
+- `frontend/features/dashboard/components/live-orders-card.tsx`
+- `frontend/features/dashboard/components/out-of-stock-card.tsx`
+- `frontend/features/dashboard/components/staff-shift-card.tsx` (deleted)
+- `frontend/features/dashboard/data.ts` (deleted)
+- `frontend/features/dashboard/hooks/use-dashboard-refresh.ts`
+- `frontend/features/dashboard/hooks/use-dashboard-summary.ts`
+- `frontend/features/dashboard/navigation.ts`
+- `frontend/features/orders/api.ts`
+- `frontend/features/orders/components/order-history-view.tsx`
+- `frontend/features/orders/components/sales-summary.tsx`
+- `frontend/features/orders/date-range.ts`
+- `frontend/features/orders/hooks/use-live-orders.ts`
+- `frontend/features/orders/hooks/use-order-history.ts`
+- `frontend/features/orders/hooks/use-order-stats.ts`
+- `frontend/package.json`
+- `package.json`
+- `packages/shared/src/index.ts`
+- `packages/shared/src/schemas/order.schema.ts`
+- `packages/shared/src/types/dashboard.types.ts`
+- `packages/shared/src/types/order.types.ts`
+- `packages/shared/src/types/reporting.types.ts`
+- `packages/shared/src/utils/format-reporting-period.ts`
+- `packages/shared/src/utils/refresh-throttle.ts`
+- `packages/shared/src/utils/reporting-state.ts`
+
+Scratch backend/.verify/dashboard-browser.ts remains gitignored; it uses the
+disposable test DB and was not run for these latest UI refinements.
+
+**Blocker:** Render/Vercel authenticated access is missing, so target runtime,
+deploy branch and auto-deploy readiness cannot yet be verified. Merge/release
+wait on these gates, not on renewed authorization. Frontend build needs matching
+NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME from existing backend env; frontend/.env.local
+was not edited.
 
 **Read, in order:**
 
@@ -69,15 +177,15 @@ Commands to re-verify the current state:
 ```bash
 cd backend
 pnpm db:generate          # only needed if src/generated/prisma is stale/missing
-pnpm test:unit            # 175 tests, 21 files (includes the tenant-scope guard and restore checks)
-pnpm test:integration     # reads TEST_DATABASE_URL from backend/.env; ~121s
+pnpm test:unit            # 209 tests, 26 files (native Temporal, reporting state, tenant guard)
+pnpm test:integration     # TEST_DATABASE_URL from backend/.env; 123 passed, 1 skipped; ~154s
 cd ..
 pnpm --filter frontend lint
 pnpm --filter frontend typecheck
-pnpm --filter frontend build
+pnpm --filter frontend build # supply NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME from the matching backend cloud
 ```
 
-Ask before committing/pushing. Repo convention: `git commit -F <file>` (heredocs drop the last line);
+Commit/push are authorized for this release. Repo convention: `git commit -F <file>` (heredocs drop the last line);
 **no `Co-Authored-By` trailer**.
 
 ## 1. The goal
@@ -287,11 +395,11 @@ second tenant's empty view). What is **still not verified**:
   `docs/DRILL-LOG.md`. Production must use a 7-day history window; the disposable test project is
   currently on the 6-hour Free-plan cap.
 
-Two **pre-existing UI gaps** surfaced during the walkthrough (not tenant-foundation defects, and not
-introduced by this branch): the dashboard cards still read hard-coded mock data
-(`frontend/features/dashboard/data.ts`) even though the real stats API exists, and the sidebar
-"Staff" link targets `/staff`, which has no page (404). The order board, history, and stats screen
-are real and tenant-scoped.
+Two pre-existing UI gaps surfaced during the walkthrough: fake dashboard data
+and the dead Staff nav link. Both are now fixed locally (2026-11-24, §0) and await
+deploy. Category refresh also passed a deployed staging recheck without code
+changes. A real staff directory/shift model and owner-facing timezone settings remain
+future work; served-order sales do not represent collected payments.
 
 ## 7. Remaining work (prioritized for a real SaaS)
 

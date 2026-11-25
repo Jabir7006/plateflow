@@ -15,6 +15,8 @@ import { prisma } from "../../lib/prisma.js";
 import AppError from "../../utils/AppError.js";
 import { HTTP_STATUS } from "../../constants/http.js";
 import { emitOrderNew, emitOrderUpdated } from "../../realtime/realtime.js";
+import { getReportingPeriod } from "./reporting.service.js";
+import { reportingCreatedAt } from "../../lib/reporting-period.js";
 
 type PlaceOrderInput = PlaceOrderSchema["body"];
 
@@ -117,21 +119,11 @@ const loadStaffView = async (
   return toStatusView(order);
 };
 
-// Build a createdAt filter from optional ISO bounds. Absent bounds are omitted,
-// so no range at all means "all time".
-const createdAtRange = (
-  from?: string,
-  to?: string
-): Prisma.OrderWhereInput["createdAt"] | undefined => {
-  if (!from && !to) return undefined;
-  return {
-    ...(from ? { gte: new Date(from) } : {}),
-    ...(to ? { lte: new Date(to) } : {}),
-  };
-};
-
 class OrderService {
-  async placeOrder(token: string, input: PlaceOrderInput): Promise<PlacedOrder> {
+  async placeOrder(
+    token: string,
+    input: PlaceOrderInput
+  ): Promise<PlacedOrder> {
     const table = await prisma.table.findUnique({
       where: { qrCode: token },
       select: { id: true, restaurantId: true },
@@ -217,7 +209,10 @@ class OrderService {
 
   // Scoped by the table token as well as the id: a real order id under the wrong
   // table returns nothing and 404s, so a token only ever sees its own orders.
-  async getOrderStatus(token: string, orderId: string): Promise<OrderStatusView> {
+  async getOrderStatus(
+    token: string,
+    orderId: string
+  ): Promise<OrderStatusView> {
     const order = await prisma.order.findFirst({
       where: { id: orderId, table: { qrCode: token } },
       include: orderItemInclude,
@@ -253,9 +248,9 @@ class OrderService {
     restaurantId: string,
     query: OrderHistoryQuerySchema["query"]
   ): Promise<OrderHistoryResult> {
-    const { page, pageSize, status, from, to } = query;
-
-    const createdAt = createdAtRange(from, to);
+    const { page, pageSize, status } = query;
+    const period = await getReportingPeriod(restaurantId, query);
+    const createdAt = reportingCreatedAt(period);
     const where: Prisma.OrderWhereInput = {
       restaurantId,
       ...(status ? { status } : {}),
@@ -294,6 +289,7 @@ class OrderService {
       pageSize,
       total,
       totalPages,
+      period,
     };
   }
 
@@ -304,9 +300,8 @@ class OrderService {
     restaurantId: string,
     query: OrderStatsQuerySchema["query"]
   ): Promise<OrderStats> {
-    const { from, to } = query;
-
-    const createdAt = createdAtRange(from, to);
+    const period = await getReportingPeriod(restaurantId, query);
+    const createdAt = reportingCreatedAt(period);
     const where: Prisma.OrderWhereInput = {
       restaurantId,
       ...(createdAt ? { createdAt } : {}),
@@ -332,9 +327,17 @@ class OrderService {
     });
 
     const totalOrders = byStatus.reduce((acc, row) => acc + row.count, 0);
-    const revenue = byStatus.find((row) => row.status === "SERVED")?.revenue ?? 0;
+    const revenue =
+      byStatus.find((row) => row.status === "SERVED")?.revenue ?? 0;
 
-    return { from: from ?? null, to: to ?? null, totalOrders, revenue, byStatus };
+    return {
+      from: period.from,
+      to: period.to,
+      totalOrders,
+      revenue,
+      byStatus,
+      period,
+    };
   }
 
   // Staff advancing an order (PENDING → PREPARING → READY → SERVED) or cancelling

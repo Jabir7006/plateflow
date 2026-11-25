@@ -69,7 +69,7 @@ needs `packages/shared` and the workspace lockfile.
 | Pre-Deploy Command | `pnpm --filter backend db:migrate:deploy` |
 | Start Command | `pnpm --filter backend start` |
 | Health Check Path | `/health` |
-| Node version | `NODE_VERSION=24.18.0` (matches local; bump deliberately) |
+| Node version | `NODE_VERSION=26.13.1` (latest LTS Lithium, verified 2026-11-24; repo `.node-version` matches) |
 | Instances | **1** for the pilot (see §9) |
 | Auto-Deploy | After CI checks pass |
 
@@ -92,6 +92,16 @@ Import the same repository as a separate Vercel project.
 | Include source files outside Root Directory | **Enabled** (needed for `packages/shared`) |
 | Install Command | `pnpm install --frozen-lockfile` |
 | Build Command | `pnpm --filter @plateflow/shared build && pnpm --filter frontend build` |
+| Node major | `26.x` (declared in `frontend/package.json` engines) |
+
+Vercel selects the Node version from the frontend project's package engines.
+It supports major-version selection, not an exact patch pin, and rolls out minor/
+patch updates itself. Local development and Render use 26.13.1; Vercel builds
+and Functions use platform-managed 26.x and may have different patch versions.
+Check `node -v` in deployment build logs when verifying a release. See
+[Vercel Node versions](https://vercel.com/docs/functions/runtimes/node-js/node-js-versions).
+There is no engine-strict npm config: pnpm install-time mismatches warn. The
+backend's native Temporal startup guard already fails on unsupported Node24.
 
 `next.config.ts` fails a production build when `BACKEND_URL` or
 `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` is missing. That is intentional: both are
@@ -236,10 +246,14 @@ Also confirm:
    ```bash
    pnpm --filter backend db:create-restaurant -- \
      --name "Restaurant Name" --slug restaurant-slug \
+     --timezone Asia/Dhaka \
      --owner-name "Owner Name" --owner-email owner@example.com
    ```
    The password is read from `PLATEFLOW_OWNER_PASSWORD`, stdin, or
    `--owner-password-file`; it is never a command-line value.
+   `--timezone` is required: choose the restaurant's actual named IANA zone
+   (e.g. `Asia/Dhaka`, `America/New_York`), not an operator/browser timezone or
+   a fixed offset. No separate timezone settings page exists yet.
 3. Do **not** run `pnpm --filter backend db:seed` in production. The seed is for
    local demo data and would create `default`/`My Restaurant`.
 4. Smoke test §7 before announcing the URL.
@@ -432,8 +446,76 @@ false restarts, and monitor the database separately.
 
 ## 12. Known gaps / follow-ups
 
+Restaurant reporting timezone release (2026-11-24): apply migration
+`20261124180000_restaurant_reporting_timezone` with `prisma migrate deploy`
+before deploying the new backend, then deploy the frontend. It adds a required
+IANA `Restaurant.timeZone` with `UTC` compatibility backfill; it does not rewrite
+any order timestamp. The backend now requires **Node 26.13.1 LTS (Lithium)**
+and uses native Temporal; no Temporal polyfill dependency/global shim remains.
+Set Render `NODE_VERSION=26.13.1` before this forthcoming code release. The local
+runtime upgrade did not change the currently deployed Render environment.
+Verify every existing restaurant's actual timezone before
+production onboarding/rollout; do not globally assign Dhaka to international
+tenants. An operator must review any existing-tenant timezone change because
+historical calendar-day grouping changes, even though timestamps do not.
+
+Dashboard, History Today/7d/30d/custom and sales presets resolve calendar days on
+the server using the stored tenant zone. Responses include the actual period
+and timezone; calendar upper bounds are exclusive next-midnight instants, with
+DST handled by Temporal. Legacy explicit ISO ranges retain inclusive upper
+bounds. Sales remain the totals of SERVED orders placed in the selected period;
+they are not payments collected on that day. Cross-midnight orders appear in
+the placement day's report after they are served. Only the disposable test DB
+has received this migration so far; live staging/dev/production still need it.
+App rollback can retain this additive column; do not drop it to roll back code.
+
+Local development: `.node-version` pins Node 26.13.1. With fnm, run `fnm install`
+and `fnm use`; pnpm stays 12.4.1. Root package engines allow `>=26.13.1 <27`.
+An unsupported runtime without Temporal fails clearly at backend startup.
+
 - No structured request logging or external error tracker yet. Add before real
   traffic if support volume grows.
-- Dashboard cards still use mock data, and the sidebar "Staff" link has no page
-  (see `MULTI-TENANT-HANDOFF.md`).
+- Dashboard live-data and Staff-nav fixes passed local checks on 2026-11-24;
+  deploy and verify them on public staging after an explicitly requested push
+  (see `MULTI-TENANT-HANDOFF.md` §0).
+- No staff directory/shift model or owner-facing timezone settings page yet.
+  Provisioning stores an explicit per-restaurant IANA timezone.
 - Rate limits and sockets are single-instance only (§9).
+
+### 12.1 Correct an existing restaurant's reporting timezone
+
+An invalid stored zone produces a readable reporting error (500) rather than a
+silent UTC fallback. Use an authorized operator connection to the explicitly
+selected database; keep connection strings and credentials out of logs/chat.
+Confirm the restaurant id/name/slug and its actual local timezone with its owner.
+Changing its zone regroups historical daily reports but does not rewrite orders.
+
+Validate the chosen named IANA zone with the same application validator first:
+
+```bash
+pnpm --filter backend exec tsx --eval 'import { isValidTimeZone } from "./src/lib/reporting-period.ts"; if (!isValidTimeZone("Asia/Dhaka")) throw new Error("Invalid IANA timezone"); console.log("Timezone valid");'
+```
+
+Replace the id and previous-zone placeholders below with reviewed values. This
+preview locks only that restaurant, checks the database recognizes the zone,
+and guards against overwriting a concurrent correction. It rolls back by default.
+
+```sql
+BEGIN;
+SELECT id, name, slug, "timeZone"
+FROM "Restaurant" WHERE id = 'REVIEWED_RESTAURANT_ID' FOR UPDATE;
+SELECT name FROM pg_timezone_names WHERE name = 'Asia/Dhaka';
+UPDATE "Restaurant"
+SET "timeZone" = 'Asia/Dhaka', "updatedAt" = CURRENT_TIMESTAMP AT TIME ZONE 'UTC'
+WHERE id = 'REVIEWED_RESTAURANT_ID'
+  AND "timeZone" = 'EXPECTED_PREVIOUS_TIMEZONE'
+RETURNING id, name, slug, "timeZone";
+ROLLBACK;
+```
+
+Proceed only when the preview identifies the intended restaurant, the timezone
+check returns a row and UPDATE returns exactly one expected row. Repeat the
+reviewed transaction with COMMIT to apply the authorized correction; otherwise
+rollback and investigate. Read reporting again and confirm period.timeZone and
+bounds. The server intentionally does not cache timezone rows, so the next
+request observes the correction; open UI tabs refresh on their normal poll/focus.

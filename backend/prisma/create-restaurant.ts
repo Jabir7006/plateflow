@@ -6,6 +6,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { z } from "zod";
 import { PrismaClient, Prisma } from "../src/generated/prisma/client.js";
 import { hashValue as hashPassword } from "../src/utils/bcrypt.js";
+import { isValidTimeZone } from "../src/lib/reporting-period.js";
 
 // Admin-provisions a restaurant and its first OWNER. The password never rides a
 // command-line argument (that leaks it into shell history and `ps`): it is read
@@ -14,6 +15,7 @@ import { hashValue as hashPassword } from "../src/utils/bcrypt.js";
 //
 //   tsx prisma/create-restaurant.ts \
 //     --name "Spice Garden" --slug spice-garden \
+//     --timezone Asia/Dhaka \
 //     --owner-name "Asha Rahman" --owner-email asha@spicegarden.com
 //
 //   PLATEFLOW_OWNER_PASSWORD=... tsx prisma/create-restaurant.ts --help
@@ -22,12 +24,13 @@ const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const USAGE = `Create a restaurant and its first OWNER.
 
 Usage:
-  tsx prisma/create-restaurant.ts --name <name> --slug <slug> \\
+  tsx prisma/create-restaurant.ts --name <name> --slug <slug> --timezone <IANA zone> \\
       --owner-name <full name> --owner-email <email> [--owner-password-file <path>]
 
 Options:
   --name                  Restaurant display name (required)
   --slug                  URL-safe slug, e.g. spice-garden (required)
+  --timezone              IANA timezone, e.g. Asia/Dhaka (required)
   --owner-name            Owner's full name (required)
   --owner-email           Owner's email, used to log in (required)
   --owner-password-file   Read the password from a file instead of stdin
@@ -70,6 +73,7 @@ async function main() {
     options: {
       name: { type: "string" },
       slug: { type: "string" },
+      timezone: { type: "string" },
       "owner-name": { type: "string" },
       "owner-email": { type: "string" },
       "owner-password-file": { type: "string" },
@@ -86,12 +90,16 @@ async function main() {
 
   const name = values["name"]?.trim();
   const slug = values["slug"]?.trim().toLowerCase();
+  const timeZone = values.timezone?.trim();
   const ownerName = values["owner-name"]?.trim();
   const ownerEmail = values["owner-email"]?.trim().toLowerCase();
   const ownerPasswordFile = values["owner-password-file"];
 
   if (!name) fail("--name is required");
   if (!slug) fail("--slug is required");
+  if (!timeZone) fail("--timezone is required (e.g. Asia/Dhaka)");
+  if (!isValidTimeZone(timeZone))
+    fail("--timezone must be a valid named IANA timezone");
   if (!SLUG_PATTERN.test(slug))
     fail(
       '--slug must be lowercase letters, numbers and hyphens (e.g. "spice-garden")'
@@ -119,7 +127,9 @@ async function main() {
   try {
     const { restaurant, owner } = await prisma
       .$transaction(async (tx) => {
-        const restaurant = await tx.restaurant.create({ data: { name, slug } });
+        const restaurant = await tx.restaurant.create({
+          data: { name, slug, timeZone },
+        });
         const owner = await tx.user.create({
           data: {
             fullName: ownerName,

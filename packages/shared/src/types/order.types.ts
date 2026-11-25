@@ -1,13 +1,11 @@
+import type { ReportingPeriod } from "./reporting.types.js";
+
 // The lifecycle a diner's order moves through. Mirrors the Prisma `OrderStatus`
 // enum; kept as a string union here so the shared package stays free of any
 // Prisma import. PENDING is where a freshly placed order starts; SERVED and
 // CANCELLED are terminal (the status page stops polling there).
 export type OrderStatus =
-  | "PENDING"
-  | "PREPARING"
-  | "READY"
-  | "SERVED"
-  | "CANCELLED";
+  "PENDING" | "PREPARING" | "READY" | "SERVED" | "CANCELLED";
 
 // One line of a placed order, read back for the status page. These are the
 // snapshots taken at order time, not live joins onto the menu, so they render
@@ -50,6 +48,7 @@ export type StaffOrderView = OrderStatusView;
 // order, not just the active ones), newest first. Carries the same per-order
 // view as the board so the history UI can show details without a second fetch.
 export interface OrderHistoryResult {
+  period: ReportingPeriod;
   orders: StaffOrderView[];
   page: number;
   pageSize: number;
@@ -73,6 +72,11 @@ export interface OrderStatusBreakdown {
 // the full per-status breakdown so a caller can show in-progress or cancelled
 // totals too.
 export interface OrderStats {
+  period: ReportingPeriod;
+  // Compatibility aliases for period.from/to, including server-resolved preset
+  // bounds. Read period.toExclusive before treating `to` as inclusive: calendar
+  // presets/custom days use the next midnight exclusively; legacy ISO bounds
+  // retain their inclusive endpoint. New consumers should use `period`.
   from: string | null;
   to: string | null;
   totalOrders: number;

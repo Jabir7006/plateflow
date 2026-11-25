@@ -277,8 +277,110 @@ selects the Cloudflare hop, which differs per request. `3` selects the client.
 Do not use `4`: a client-supplied `X-Forwarded-For` entry would become
 selectable.
 
-### Known UI gaps (unchanged, documented not fixed)
+### Known UI gaps at the time of this drill
 
 - "Manage categories" dialog does not refresh after creating a category (reload fixes it).
 - Dashboard cards still use mock data (`frontend/features/dashboard/data.ts`).
 - Sidebar "Staff" link 404s.
+
+These historical observations are superseded by the 2026-11-24 recheck below.
+
+---
+
+## D-2026-11-24 — dashboard/nav local acceptance and category staging recheck
+
+- Branch `feat/dashboard-live-data`, base `7c79af5`, uncommitted. Dashboard/nav
+  changes are local and have not been deployed.
+- Backend lint/typecheck passed; unit suite: 22 files / 181 tests passed;
+  integration: 10 files / 117 passed, 1 skipped, 147.90s. Includes summary role
+  gates, two-tenant isolation, midnight bounds, distinct occupied tables, READY
+  backlog and capped unavailable-item list with exact total count.
+- Frontend lint/typecheck and production build passed (11 routes). Required
+  public Cloudinary build setting supplied from the existing backend environment;
+  no env file, migration or deployment configuration changed.
+- Local browser used disposable TEST_DATABASE_URL fixtures and the real app,
+  Next rewrite and socket handshake. A's dashboard began at sales 0, active 0,
+  occupied 0/2, unavailable 1. New orders updated the live card/metrics without
+  reload; serving two orders produced sales 82.05, active 0, occupied 0/2.
+  Availability change + Refresh showed 2 unavailable items. CHEF got API sales
+  null and UI "—". Real logout/login to empty tenant B showed all zeros, 0/0
+  tables, no A menu names and the availability empty state. Mobile nav had no
+  Staff link. Simulated API failure showed one inline error; Retry recovered.
+- Deployed staging category recheck: Add category via keyboard and via mouse
+  both returned POST 201 then GET 200, showing the new row in the still-open
+  Manage categories dialog without reload. Existing invalidation works; no menu
+  code was changed. All temporary categories were deleted and the staging
+  session logged out.
+- Local fixture cleanup was audited: test DB returned to 1 baseline restaurant,
+  0 users/items/tables/orders. Temporary credentials, servers and preview tabs
+  were removed.
+  Public staging acceptance of the new dashboard/nav remains after deploy.
+
+### Approved review follow-up — restaurant timezones and dashboard cleanup
+
+The user approved per-restaurant timezones, placement-day sales with explicit
+labels and the cleanup package; then delegated defaults/provisioning choices
+and approved Temporal. Existing records receive UTC compatibility backfill;
+operators must verify actual tenant zones before rollout. New provisioning
+requires a valid named IANA `--timezone`. No order timestamps were rewritten.
+Dashboard/history/stats return their server-resolved period/timezone; calendar
+presets/custom dates use inclusive start/exclusive next-midnight end, including
+23/25-hour DST days. Legacy explicit ISO end bounds stay inclusive.
+
+Dashboard event refreshes are bounded to 3s with a trailing call, terminal/new/
+connect events only, immediate manual Refresh, and cancellation on unmount or
+identity change. Live card caps at oldest 5 plus View all. Error/401 and query/
+callback cleanup applied. Reporting fixtures reset per test, freeze only Date,
+and pass ISO UTC strings to raw pg queries so timestamp-without-zone columns do
+not inherit the test machine's timezone during Date serialization.
+
+Final checks: unit **205 passed / 25 files**; integration **120 passed / 10 files,
+1 skipped**, 152.30s. Backend/frontend lint and typecheck pass; Prisma schema
+valid; shared build and final frontend build pass (11 routes). Migration deploy,
+status (9 applied migrations) and schema diff (no difference) verified only on
+TEST_DATABASE_URL. No live staging/dev/production migration or deploy performed.
+The revised timezone/UI browser acceptance remains after deploy; original
+browser checks above are not evidence for these new refinements.
+Post-suite audit: 1 baseline restaurant, 0 users/items/tables/orders; timezone
+column is NOT NULL with UTC default. All disposable fixtures were cleaned up.
+
+### Latest LTS upgrade and native Temporal verification
+
+The user requested latest Node LTS and explicitly approved native Temporal with
+polyfill removal. Official release index checked 2026-11-24: Node **26.13.1
+(Lithium)**, released 2026-11-10. Installed via fnm and selected as local default
+and lts-latest. Repo `.node-version`/root engine range pin Node 26; pnpm remains
+12.4.1. Deployment documentation now specifies NODE_VERSION=26.13.1, but live
+Render environment/runtime was not edited or redeployed.
+
+Removed `@js-temporal/polyfill`; reporting uses native Temporal. Added native
+TypeScript Temporal lib while preserving existing DOM typings, and a startup
+guard/unit test for runtimes without Temporal. On Node 26.13.1, backend/frontend
+lint and typecheck pass; **206 unit tests / 25 files** and **120 integration
+tests / 10 files (1 skipped)** pass, integration 144.23s. Both production builds pass (frontend 11 routes); emitted backend module
+smoke test returns the correct 23-hour New York DST period using native Temporal.
+Fixture audit returned to 1 baseline restaurant, 0 users/items/tables/orders.
+No new DB migration, commit, push or deploy.
+
+### Approved re-review fixes — 2026-11-25
+
+- Backend lib is now ES2022 + ESNext.Temporal only; JSON response flexibility is
+  isolated to tests/http-json.ts. Compile-only assertions catch accidental DOM
+  exposure. Backend source and tests typecheck without DOM.
+- Frontend package engines select Node 26.x on Vercel. Its major-only/automatic
+  patch policy is documented separately from local/Render's 26.13.1 pin. Actual
+  live project settings were not edited.
+- Integration reporting time is stubbed through a dedicated clock; real Date
+  and dependency deadlines keep advancing (covered by an integration assertion).
+- Bad tenant timezone returns readable AppError 500 without echoing its raw
+  value; a scoped correction is immediately observed while another tenant stays
+  unaffected. No timezone cache was introduced. Repair preview/procedure is in
+  DEPLOY-RUNBOOK.md §12.1.
+- Matching periods share a label; stale/different periods remain independently
+  labelled. Header loading has a reserved date slot. Custom without dates does
+  not query or silently expand to all time; API rejects it, and either one-sided
+  date bound works. Bounds aliases are documented without removing fields.
+- Unit 209 passed / 26 files; full integration 123 passed / 10 files, 1 skipped,
+  153.65s. Both lint/typechecks and production builds pass (frontend 11 routes).
+  Cleanup audit: 1 baseline restaurant, 0 users/items/tables/orders. No new migration,
+  commit/push or live deploy.

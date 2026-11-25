@@ -5,6 +5,7 @@ import express from "express";
 import type { Request } from "express";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import AppError from "../../../src/utils/AppError.js";
+import { readJson } from "../../http-json.js";
 import {
   MENU_ITEM_IMAGE_FIELD,
   menuItemImageUpload,
@@ -88,7 +89,9 @@ describe("menu item image upload", () => {
     });
 
     expect(response.status).toBe(400);
-    expect((await response.json()).message).toContain("JPEG, PNG, WebP or AVIF");
+    expect((await readJson<{ message: string }>(response)).message).toContain(
+      "JPEG, PNG, WebP or AVIF"
+    );
   });
 
   it("rejects an unexpected file field by name", async () => {
@@ -98,7 +101,7 @@ describe("menu item image upload", () => {
     });
 
     expect(response.status).toBe(400);
-    expect((await response.json()).message).toContain(
+    expect((await readJson<{ message: string }>(response)).message).toContain(
       'field named "image"'
     );
   });
@@ -106,15 +109,13 @@ describe("menu item image upload", () => {
   it("rejects a file larger than 5MB with a payload-too-large status", async () => {
     const response = await fetch(`${baseUrl}/upload`, {
       method: "POST",
-      body: imageForm(
-        MENU_ITEM_IMAGE_FIELD,
-        "image/png",
-        5 * 1024 * 1024 + 1
-      ),
+      body: imageForm(MENU_ITEM_IMAGE_FIELD, "image/png", 5 * 1024 * 1024 + 1),
     });
 
     expect(response.status).toBe(413);
-    expect((await response.json()).message).toContain("smaller than 5MB");
+    expect((await readJson<{ message: string }>(response)).message).toContain(
+      "smaller than 5MB"
+    );
   });
 
   it("fails with a field error when the form carried no file", async () => {
@@ -127,7 +128,9 @@ describe("menu item image upload", () => {
     });
 
     expect(response.status).toBe(400);
-    expect((await response.json()).message).toBe("Choose an image to upload");
+    expect((await readJson<{ message: string }>(response)).message).toBe(
+      "Choose an image to upload"
+    );
   });
 
   it("returns the uploaded bytes to the controller", async () => {
@@ -141,8 +144,8 @@ describe("menu item image upload", () => {
   });
 
   it("throws, rather than returning undefined, when a controller forgets the file check", () => {
-    expect(() => requireImageFile({} as Request, MENU_ITEM_IMAGE_FIELD)).toThrow(
-      AppError
-    );
+    expect(() =>
+      requireImageFile({} as Request, MENU_ITEM_IMAGE_FIELD)
+    ).toThrow(AppError);
   });
 });

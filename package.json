@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "packageManager": "pnpm@12.4.1",
+  "engines": {
+    "node": ">=26.13.1 <27"
+  },
   "scripts": {
     "dev": "pnpm --filter @plateflow/shared build && pnpm --parallel --filter @plateflow/shared --filter backend --filter frontend dev",
     "build": "pnpm --filter @plateflow/shared build && pnpm --filter backend build && pnpm --filter frontend build",

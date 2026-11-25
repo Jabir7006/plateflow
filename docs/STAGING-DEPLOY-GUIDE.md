@@ -57,7 +57,7 @@ Read this with [Deploy runbook](./DEPLOY-RUNBOOK.md) §2–§4. The runbook has 
 5. **Environment → Advanced → Add Environment Variables.** Paste the staging
    matrix (§3). Use the **pooled** URL for `DATABASE_URL`, **direct** for
    `DIRECT_URL`, both from `~/.config/plateflow/staging.env`.
-6. Add `NODE_VERSION=24.18.0`.
+6. Add `NODE_VERSION=26.13.1` (matches the repo's `.node-version`; LTS Lithium).
 7. **Create Web Service.** Wait for the build (first one is slow).
 8. Check `https://plateflow-staging-api.onrender.com/health` returns `200`
    with `{"status":"ok"}`.
@@ -74,6 +74,8 @@ you want staging always warm.
 2. **Import Git Repository** → pick PlateFlow. Authorize the Vercel GitHub app
    if asked.
 3. **Root Directory**: click **Edit**, choose `frontend`.
+   Its package.json now declares Node `26.x`; Vercel manages minor/patch versions.
+   This is a major-version selection, unlike the exact local/Render 26.13.1 pin.
 4. Turn **ON**: *Include source files outside Root Directory*. Required —
    `packages/shared` lives outside `frontend`.
 5. **Build and Output Settings** → override:
@@ -246,13 +248,20 @@ These are the traps found while setting staging up. Each one cost real time.
   (`DRILL-LOG.md` D-2026-11-22): at `3`, one connection gave 120 × `200` then
   `429` from #121, and a forged `X-Forwarded-For` was ignored.
 
-### Known UI gaps (not tenant bugs)
+### UI follow-ups (updated 2026-11-24)
 
-- **"Manage categories" dialog does not refresh after creating a category** in
-  the same session. Reload the page and it is there. Logged as a follow-up.
-- **Dashboard cards still show mock data** (`frontend/features/dashboard/data.ts`)
-  even though the stats API exists.
-- **Sidebar "Staff" link 404s** (`/staff` has no page).
+- Dashboard summary and live orders now use real tenant-scoped data locally;
+  the Staff nav link is removed. These changes await commit/push and deploy,
+  then a public staging check (`docs/NEXT-STEPS.md`).
+- Category refresh was rechecked on deployed staging: mouse and keyboard create
+  both show the new row in the still-open parent dialog without a reload. The
+  earlier stale-list claim is retired; no menu code change was needed.
+- A real staff directory and shift model are still absent. Dashboard availability
+  replaces the fake shift card. The reviewed local change now stores a required
+  restaurant IANA timezone and resolves reporting days on the server. Apply the
+  additive migration before backend/frontend deploy; verify each existing
+  restaurant's actual timezone (UTC is the compatibility backfill). See the
+  timezone release note in `DEPLOY-RUNBOOK.md` §12.
 
 ### Shutdown / database lifecycle
 
