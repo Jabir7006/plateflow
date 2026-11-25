@@ -6,13 +6,14 @@ repo is pushed and the `staging` Neon branch already exists.
 Read this with [Deploy runbook](./DEPLOY-RUNBOOK.md) §2–§4. The runbook has the
 "why"; this file has the clicks.
 
-> **Staging values already prepared (2026-11-21)**
+> **Staging values (updated 2026-11-25)**
 > - Neon branch: `staging` (`br-delicate-math-azov6qa2`), project `plateflow`.
 > - Test tenants: `staging-one` (owner-a@staging.plateflow.test) and
 >   `staging-two` (owner-b@staging.plateflow.test).
 > - Staging DB URLs and tenant credentials: `~/.config/plateflow/staging.env`
 >   (mode 600, outside the repo). Never paste these into chat or commit them.
-> - Migrations already applied on that branch (8 migrations, 0 pending).
+> - Migrations applied: 9, including restaurant reporting timezone; 0 pending.
+> - Existing staging-one/staging-two reporting zones remain UTC.
 > - Production branch `br-aged-sun-az6xsl7h` is **never** used for staging.
 
 ---
@@ -43,9 +44,10 @@ Read this with [Deploy runbook](./DEPLOY-RUNBOOK.md) §2–§4. The runbook has 
    | --- | --- |
    | Name | `plateflow-staging-api` |
    | Region | `Singapore` (same as Neon: `ap-southeast-1`) |
-   | Branch | `feat/public-surface-hardening` (or `main` later) |
+   | Branch | `master` |
    | Root Directory | **leave empty** — must be the repo root |
    | Runtime | `Node` |
+   | Auto-Deploy | **Off**; backend releases are manual until CI/migration gates exist |
    | Build Command | `pnpm install --frozen-lockfile && pnpm --filter @plateflow/shared build && pnpm --filter backend build` |
    | Start Command | `pnpm --filter backend start` |
    | Health Check Path | `/health` |
@@ -132,6 +134,13 @@ against staging or production.
 ---
 
 ## 4. Migrations before the first deploy
+
+Verify both URLs resolve to the Neon **staging** branch before running this.
+The app uses the pooled URL; Prisma uses the direct URL. Do not assume the
+current Render DIRECT_URL is correct because the app works: on 2026-11-25 it
+pointed at production while DATABASE_URL pointed at staging. That mismatch was
+explicitly corrected before the timezone migration. Never restore that wrong
+CLI target during an application rollback.
 
 If Render has no pre-deploy command, run this locally from `backend/`:
 

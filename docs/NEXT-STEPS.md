@@ -25,14 +25,16 @@ orders/tiles and served sales, manual Refresh, loading placeholders, one inline
 error + Retry recovery, CHEF sales null/"—", real logout/login to empty tenant B,
 and mobile navigation. Fixtures and temporary credentials were removed.
 
-**Release authorized (2026-11-25):** commit/push, PR and merge after runtime,
-migration and staging acceptance gates were explicitly requested. Staff nav is
-committed as 62631a3; live dashboard/reporting is committed as 4157023 and
-pushed. Draft PR: https://github.com/Jabir7006/plateflow/pull/3. Vercel preview
-status passed. Platform settings require login, staging still has 8 migrations
-and no timezone column; public acceptance and merge remain gated. The new
-dashboard API and nav have not been deployed to public staging. Current resume state and changed files are in
-`MULTI-TENANT-HANDOFF.md` §0.
+**Released (2026-11-25):** PR https://github.com/Jabir7006/plateflow/pull/3
+merged as 008e43b after public staging acceptance. Staff nav (62631a3), live
+reporting (4157023) and release docs (696679b) were pushed. Render now runs Node
+26.13.1 and tracks master with auto-deploy disabled; Vercel uses 26.x/master.
+Staging has 9 migrations and existing UTC zones. The misconfigured staging
+DIRECT_URL was corrected from production before migration; production was not
+queried or modified. Deployed reporting/tenant/socket checks passed 9/9 groups,
+and browser dashboard/history/roles/mobile/loading/error/session checks passed.
+Temporary fixture tenants were removed. See handoff §0 and DRILL-LOG.md for the
+current state; the original work order below is historical.
 
 **Approved review follow-up (2026-11-24):** the user chose restaurant timezones,
 placement-day sales with explicit labels, and the refresh/card/query/error/test

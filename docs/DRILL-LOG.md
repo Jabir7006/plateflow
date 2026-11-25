@@ -384,3 +384,78 @@ No new DB migration, commit, push or deploy.
   153.65s. Both lint/typechecks and production builds pass (frontend 11 routes).
   Cleanup audit: 1 baseline restaurant, 0 users/items/tables/orders. No new migration,
   commit/push or live deploy.
+
+
+## D-2026-11-25 — timezone reporting and dashboard released to public staging
+
+PR [#3](https://github.com/Jabir7006/plateflow/pull/3) merged as `008e43b` after
+acceptance of feature head `696679b`. Backend Render deployment
+`dep-dc3c8su8bjmc73f99oug` is live; logs confirm Node **26.13.1**. Frontend Vercel
+production-target deployment `dpl_6TjJPCDynvyouW9CJs6GCU1786An` reached READY on
+Node **26.x** and served `https://plateflow-nu.vercel.app` before merge.
+
+User explicitly approved staging configuration changes, manual rollout and
+DIRECT_URL repair. Render had DATABASE_URL on staging but DIRECT_URL on the
+production branch, confirmed through Neon endpoint metadata without querying
+production. Auto-deploy was disabled and DIRECT_URL corrected to the verified
+staging direct endpoint before migration. Render now tracks master; backend
+releases remain manual until backend CI and migration gates are automated.
+Vercel already tracks master and selects Node26.x.
+
+Before migration, pg_dump made an off-Neon staging backup, encrypted with
+AES-256-GCM under ~/.local/share/plateflow/backups/staging/. The separate key is
+under ~/.config/plateflow/backup-keys/; files are 600 and directories 700. An
+in-memory decrypt roundtrip matched the dump, and pg_restore inventory contained
+11 table-data entries. Plaintext dump was removed. The backup metadata stores
+its checksum and encryption format. This was archive/encryption verification,
+not a new restore drill. Rollback configuration remains outside the repo and retains the corrected
+staging DIRECT_URL; the unsafe previous production value was removed.
+
+Only the expected migration `20261124180000_restaurant_reporting_timezone` was
+pending; prisma migrate deploy applied it to the verified non-default staging
+branch. There are 9 applied migrations. Existing staging-one and staging-two
+zones remain UTC. Order timestamps were not rewritten. Production was neither
+queried nor modified.
+
+Deployed checks passed **9/9 reporting/tenant/socket groups**, plus fixture/setup
+socket checks:
+
+- Exact dashboard metrics: 7 active orders, 2/2 occupied tables, 6 unavailable
+  items with a 5-item list, and zero today sales for a served yesterday-placement
+  order. Serving a today-placement order yielded 6 active orders and 27.35 sales.
+- Tenant B saw no A orders/metrics, could not advance A orders, and received no
+  A socket events; A received all 7 new-order events and all 3 status updates.
+- CHEF summary returned null sales; stats was 403. Client-supplied tenant/zone
+  overrides were ignored; Dhaka and New York had their own resolved bounds.
+- Dashboard Today and History/stats Today/7d/30d periods agreed. New York custom
+  March 8 and November 1 windows resolved to 23 and 25 hours on native Temporal.
+- Blank Custom was 400; either one-sided date was accepted. A scoped invalid
+  fixture zone gave a readable reporting 500, then repair was observed immediately.
+
+Real browser checks on the public origin passed:
+
+- Dashboard showed restaurant/date/zone, exact metrics, five oldest live rows
+  with “And 2 more”/View all, and five unavailable rows with exact remaining count.
+- Without reload, 3 status transitions caused one summary fetch and updated the
+  served sales tile to 27.35 and active count to 6.
+- Blank Custom made **zero** History/stats requests, showed the choose-date hint
+  and hid the table; adding only From made both valid custom requests. Matching
+  periods showed one label. CHEF History retained the zone without making a money
+  request or rendering the sales panel.
+- Real logout/login to empty tenant B showed New York dates and no A cache data;
+  CHEF login showed sales “—”. A full browser reload restored the chef session.
+- Browser-scoped temporary 503 response produced one reporting alert and no empty
+  Key metrics section. Header height stayed 54 px and date-slot height 20 px from
+  loading through resolved data. Captured manual Refresh started a request after
+  about 9 ms; captured Retry after fault removal started after about 38 ms and
+  recovered. These are observations, not latency guarantees.
+- 390 px mobile navigation showed Dashboard/Menu/Orders/History/Tables without
+  Staff or page horizontal overflow. All injected browser instrumentation was
+  removed, sessions logged out and the opened tab closed.
+
+Temporary Dhaka/New York fixture tenants and chef were deleted with scoped SQL
+cleanup. Only staging-one/staging-two remained, both UTC; their data was kept.
+No application source changes were needed during release. Earlier local checks
+remain 209 unit tests / 26 files and 123 integration tests / 10 files, 1 skipped,
+plus lint/typechecks and production builds. Release documentation commit hooks
+run lint/typechecks again.

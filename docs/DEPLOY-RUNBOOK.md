@@ -64,6 +64,7 @@ needs `packages/shared` and the workspace lockfile.
 | Setting | Value |
 | --- | --- |
 | Runtime | Node |
+| Git branch | `master` |
 | Root Directory | *(empty, repository root)* |
 | Build Command | `pnpm install --frozen-lockfile && pnpm --filter @plateflow/shared build && pnpm --filter backend build` |
 | Pre-Deploy Command | `pnpm --filter backend db:migrate:deploy` |
@@ -71,7 +72,7 @@ needs `packages/shared` and the workspace lockfile.
 | Health Check Path | `/health` |
 | Node version | `NODE_VERSION=26.13.1` (latest LTS Lithium, verified 2026-11-24; repo `.node-version` matches) |
 | Instances | **1** for the pilot (see §9) |
-| Auto-Deploy | After CI checks pass |
+| Auto-Deploy | **Off** for the pilot; deploy manually until backend CI and migration gates are automated |
 
 The backend build runs `prisma generate && tsc`, so a clean checkout does not
 need a committed Prisma client. `prisma.config.ts` reads `DIRECT_URL`; it must
@@ -278,6 +279,14 @@ Also confirm:
 
 ### 6.2 Migration rules
 
+Before a staging migration, verify **both** `DATABASE_URL` and `DIRECT_URL`
+resolve to the intended staging branch: pooled for the app, direct for Prisma
+and backups. Compare their endpoints against Neon branch metadata without
+printing credentials. A matching application URL alone does not validate the
+CLI target. On 2026-11-25, staging Render had a production `DIRECT_URL`; it was
+corrected to the verified staging endpoint before any migration was run. Keep
+that correction even when rolling back the application or Node version.
+
 - `prisma migrate deploy` is the only migration command in shared environments.
 - Never run `prisma migrate dev` or `prisma db push` against staging or
   production; both can propose a destructive reset.
@@ -452,8 +461,8 @@ before deploying the new backend, then deploy the frontend. It adds a required
 IANA `Restaurant.timeZone` with `UTC` compatibility backfill; it does not rewrite
 any order timestamp. The backend now requires **Node 26.13.1 LTS (Lithium)**
 and uses native Temporal; no Temporal polyfill dependency/global shim remains.
-Set Render `NODE_VERSION=26.13.1` before this forthcoming code release. The local
-runtime upgrade did not change the currently deployed Render environment.
+Set Render `NODE_VERSION=26.13.1` before this forthcoming code release. Staging Render now runs 26.13.1 (verified in deployment logs on 2026-11-25);
+check each other deployment independently.
 Verify every existing restaurant's actual timezone before
 production onboarding/rollout; do not globally assign Dhaka to international
 tenants. An operator must review any existing-tenant timezone change because
@@ -465,8 +474,9 @@ and timezone; calendar upper bounds are exclusive next-midnight instants, with
 DST handled by Temporal. Legacy explicit ISO ranges retain inclusive upper
 bounds. Sales remain the totals of SERVED orders placed in the selected period;
 they are not payments collected on that day. Cross-midnight orders appear in
-the placement day's report after they are served. Only the disposable test DB
-has received this migration so far; live staging/dev/production still need it.
+the placement day's report after they are served. Staging received this migration on 2026-11-25 after a verified backup and
+branch audit; both existing staging tenants remain UTC. Dev/production rollout
+still requires its own explicit target verification and migration.
 App rollback can retain this additive column; do not drop it to roll back code.
 
 Local development: `.node-version` pins Node 26.13.1. With fnm, run `fnm install`
@@ -475,9 +485,8 @@ An unsupported runtime without Temporal fails clearly at backend startup.
 
 - No structured request logging or external error tracker yet. Add before real
   traffic if support volume grows.
-- Dashboard live-data and Staff-nav fixes passed local checks on 2026-11-24;
-  deploy and verify them on public staging after an explicitly requested push
-  (see `MULTI-TENANT-HANDOFF.md` §0).
+- Dashboard/timezone reporting and Staff-nav fixes passed public staging
+  acceptance on 2026-11-25; PR #3 merged. See DRILL-LOG.md for the evidence.
 - No staff directory/shift model or owner-facing timezone settings page yet.
   Provisioning stores an explicit per-restaurant IANA timezone.
 - Rate limits and sockets are single-instance only (§9).
