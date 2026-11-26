@@ -1,13 +1,15 @@
 # Staging release preflight
 
-**Status** · Ready for implementation when requested.  
-**Baseline** · `master` at `fe4ed73` plus the branch-protection and planning docs.
+**Status** · Implemented, verified, and reviewed locally.
+
+**Baseline** · Local and remote `master` at `5442410` after PR #5. The
+checkout has a pre-existing local update to handoff §0. Preserve that update.
+The public GitHub API reports a successful `master` push run, attempt 1, and a
+successful `CI` job for this baseline.
 
 Read [the project rules](../../AGENTS.md), [handoff §0](../../MULTI-TENANT-HANDOFF.md#0-resume-here),
 [CI](../CI.md), [runbook §5–6](../DEPLOY-RUNBOOK.md#5-pre-deploy-checklist), and
 [staging guide §4](../STAGING-DEPLOY-GUIDE.md#4-migrations-before-the-first-deploy).
-Check the current `master` before editing and update this plan if its assumptions
-have changed. The next session can be prompted with `Implement docs/plans/staging-release-preflight.md`.
 
 ## Outcome and scope
 
@@ -74,7 +76,9 @@ tracked command and tests must run in a fresh checkout with no `.verify/` files.
    with `branch=master`, `event=push`, `head_sha=<sha>`, and `per_page=1`.
    Require the returned run to match the SHA, branch, and event with
    `status=completed` and `conclusion=success`. Verify that the latest attempt
-   has a completed, successful `CI` job via `/actions/runs/{id}/attempts/{attempt}/jobs`.
+   has one completed, successful `CI` job for the same head SHA via
+   `/actions/runs/{id}/attempts/{attempt}/jobs?per_page=100`. The current CI
+   workflow has one job. Fail if GitHub returns an incomplete job list.
    Validate both numeric IDs before building paths. Build `ciRunUrl` from the
    fixed repository and numeric run ID. Missing, pending, skipped, or failed CI
    stops the command before Render or Neon is queried.
@@ -85,7 +89,8 @@ tracked command and tests must run in a fresh checkout with no `.verify/` files.
    `DATABASE_URL` and `DIRECT_URL` from the `envVar` entries and require both.
    Pass the Render bearer token only to Render. Keep both values in memory.
 4. GET `https://console.neon.tech/api/v2/projects/{projectId}/branches/{branchId}`
-   and that project's `/endpoints`, following endpoint pagination if returned.
+   and that project's `/endpoints`, following endpoint pagination if returned
+   and rejecting repeated cursors.
    Verify the expected project and branch IDs and branch name. Require a
    non-default staging branch and an enabled read-write endpoint whose
    `project_id` and `branch_id` match. Pass the Neon bearer token only to Neon.
@@ -93,8 +98,10 @@ tracked command and tests must run in a fresh checkout with no `.verify/` files.
    Require `DATABASE_URL` to match the endpoint hostname with `-pooler` appended
    to its first DNS label and `DIRECT_URL` to match the endpoint hostname exactly.
    Require the same endpoint for both. Reject query keys `host`, `hostaddr`,
-   `port`, `database`, `dbname`, `options`, `user`, and `password`
-   case-insensitively. This step checks metadata only and opens no SQL connection.
+   `port`, `database`, `dbname`, `options`, `user`, `password`, and `service`
+   case-insensitively. The latter can load additional libpq connection
+   parameters. Accept only a single database path segment and no URL fragment.
+   This step checks metadata only and opens no SQL connection.
 5. Re-read the `master` ref before reporting success. If it moved, instruct the
    operator to rerun with the new revision after CI. A pass covers the exact
    SHA at preflight time. The operator still pins the manual release to that SHA.
@@ -124,6 +131,7 @@ or extra arguments and absent credentials with an isolated env. For success and
 failure across the CLI boundary, preload a temporary Node module that replaces
 `globalThis.fetch` with synthetic provider fixtures and rejects any unexpected
 request. Assert exit codes, stdout/stderr, no real network and no secret output.
+Share synthetic responses in `backend/tests/fixtures/staging-release-preflight.ts`.
 Remove temporary fixture files after the tests.
 
 Run the same checks as CI from the repo root using a disposable database only.
@@ -148,3 +156,35 @@ records only its SHA, CI run URL, and pass/fail result. If a preflight fails,
 stop the release until the check can be rerun successfully. Reverting the CLI
 requires only reverting its code and docs. There is no database or provider
 state to roll back.
+
+## Verification result
+
+All commands above exited 0 on Node 26.13.1 and pnpm 12.4.1 with a disposable
+Postgres 18.7 instance. The full suites passed 279 unit tests and 139 integration
+tests, with the existing legacy-seed skip. All 9 migrations applied from an
+empty database. The disposable instance was removed after validation.
+
+Live read-only preflight passed for `544241004f790360b318ead8f2cf7001ae74881c`.
+[GitHub Actions run](https://github.com/Jabir7006/plateflow/actions/runs/45777517280)
+
+Local review found no blocking issues. Backend lint, typecheck, and
+`git diff --check` passed again. Focused reruns passed 57 unit tests and 9 CLI
+integration tests using synthetic provider replies and a disposable local
+Postgres instance for integration setup.
+
+## Publish and merge
+
+The user authorized the commit, push, PR, and merge. Start from the reviewed
+working tree on `master` at `5442410`. The files listed under Changed in
+handoff §0 are the publication scope.
+
+1. Create `feat/staging-release-preflight`, stage the listed files, run
+   `git diff --cached --check`, and commit through the existing hooks.
+2. Push the branch and open a PR targeting `master`. Verify the remote PR head
+   matches the local commit and the base is current.
+3. Require successful CI, a mergeable PR, and resolved review threads. If the
+   branch falls behind, update it and verify the new head through CI. Merge
+   with the verified head SHA.
+4. Confirm GitHub reports the PR merged and the published tree is reachable
+   from `origin/master`. Sync local `master` using a fast-forward and record
+   the merge in handoff §0. Staging releases follow the deploy runbook.
