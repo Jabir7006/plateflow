@@ -45,10 +45,17 @@ for them. Render remains on the approved manual deployment policy; follow
 `DEPLOY-RUNBOOK.md` for database verification and backend-before-frontend rollout.
 Vercel's existing Git integration still operates independently of this workflow.
 
-A workflow check alone does not prevent merging. After the first hosted run
-passes, an explicitly approved repository ruleset/branch-protection change can
-require the **CI** check on `master`. Changing deployment settings or enabling
-automatic backend deployment is a separate decision.
+The [Require CI on master ruleset](https://github.com/Jabir7006/plateflow/rules/28139606)
+requires changes to `master` to go through a pull request. Before merging, the
+PR branch must be up to date with `master` and pass the **CI** check reported by
+GitHub Actions. The ruleset has no bypass actors and requires zero review
+approvals. It allows merge, squash, and rebase.
+
+To inspect the effective rules:
+
+```bash
+gh api repos/Jabir7006/plateflow/rules/branches/master
+```
 
 ## Verification
 

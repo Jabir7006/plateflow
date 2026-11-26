@@ -1,7 +1,7 @@
 # PlateFlow — standing handoff (resume here)
 
 **Repo:** `/home/jabir/Projects/plateflow` — default branch `master`
-**Updated:** 2026-11-25 · PR #4 merged; CI on master; obsolete branches removed
+**Updated:** 2026-11-26 · required CI on master; next implementation plan saved
 **Live staging:** API `https://plateflow-staging-api.onrender.com` · web
 `https://plateflow-nu.vercel.app` · Neon branch `staging`
 
@@ -13,7 +13,21 @@
 
 ## 0. Resume here
 
-**Status — CI merged into master; PR #4 complete.**
+**Status — GitHub requires a PR and passing CI on master.**
+`AGENTS.md` now requires a written implementation plan for each task. The
+staging release preflight plan is ready for a separate implementation session.
+User approved activation. GitHub ruleset `28139606` is active:
+https://github.com/Jabir7006/plateflow/rules/28139606.
+Read-back of both the ruleset and effective master rules confirmed that it
+targets only `refs/heads/master`, requires a PR and a passing `CI` from GitHub
+Actions (app 15368), and requires the PR branch to be up to date with master.
+There are zero required approving reviews or bypass actors, and merge, squash,
+and rebase are all permitted. Verification used the GitHub API read-back.
+Remote master is fe4ed73463927d4dd3e4434ed6956982700968d4. Its latest push run
+completed successfully on GitHub Actions:
+https://github.com/Jabir7006/plateflow/actions/runs/45645105645.
+
+PR #4 is complete.
 Merge commit f6ccb2609cdbdd77cc31337dc5318f15487e022a. User explicitly asked
 to merge if appropriate; latest head 4c3fa7c was up to date, mergeable, with
 CI/Vercel/Preview Comments all passed (3/3), no unresolved review threads.
@@ -31,11 +45,11 @@ Commit hooks passed both lint/typechecks. GitHub Actions is enabled.
 Base f3ab0e7 (origin/master). User explicitly approved CI implementation and
 asked whether release gates mean CD. Explained: CI checks revisions; release
 gates are deployment preconditions; CD automates deployment around them.
-User now explicitly authorized CI commit/push, opening a PR/hosted run and
-deleting unnecessary branches. CI merge is now authorized and completed. Required branch checks and CD
-changes have not been authorized.
-No CD workflow or live platform settings changed. Previous release authorization
-was fulfilled with PR #3 and the release-doc push; do not infer it for new work.
+The prior authorization covered CI commit/push, opening the PR/hosted run,
+merging, and deleting unnecessary branches. The user separately authorized and
+the assistant activated the required CI ruleset. CD remains outside that scope.
+Previous release authorization was fulfilled with PR #3 and the release-doc
+push.
 
 CI job defined in .github/workflows/ci.yml: PR/push master, merge-group, manual;
 Node from .node-version (26.13.1), pnpm from root packageManager (12.4.1), verified
@@ -63,8 +77,9 @@ DB. Temporary Postgres stopped and checkout/DB data removed. Sanitized logs and
 report under backend/.verify/ci-validation-logs/ and ci-clean-result.json.
 Hosted GitHub Actions completed successfully on PR #4 implementation commit
 d3cc18b. Docker service startup and the pinned Actions worked on Ubuntu24.04.
-The final evidence-only documentation push triggers another normal CI run. Local tests used Postgres binaries
-because this workstation has no Docker. No local runtime/provider keys copied.
+The final evidence-only documentation push also passed CI. Local tests used
+Postgres binaries because this workstation has no Docker. No local
+runtime/provider keys copied.
 
 **Last staging release — green (unchanged):** PR
 https://github.com/Jabir7006/plateflow/pull/3 merged as008e43b; release docs pushed
@@ -144,13 +159,12 @@ branches removed across the cleanup and subsequent CI merge).
 No commits lost: every removed tip remains reachable from master. Details in
 gitignored backend/.verify/branch-cleanup-result.json.
 
-**Next action:** CI implementation and conditional merge are complete. The
-workflow is now on master and runs on pushes/PRs/merge-group/manual triggers.
-User chooses the next scope. Recommended: explicitly approved ruleset requiring
-the CI check, then design automated release gates/CD if desired. Do not enable
-branch protection or change manual backend deployment policy without approval.
-Later product priorities: self-serve onboarding, plan gating, super-admin;
-payments deferred. No open CI PR or PR watch remains.
+**Next action:** On implementation request, follow the
+[staging release preflight plan](docs/plans/staging-release-preflight.md).
+It specifies a read-only gate for the exact CI-approved SHA and the two staging
+DB targets. Later release steps stay manual until separately scoped. Future
+product priorities are self-serve onboarding, plan gating, and super-admin.
+Payments are deferred.
 
 **Changed / CI files (merged through PR #4):**
 
@@ -161,22 +175,23 @@ payments deferred. No open CI PR or PR watch remains.
 - backend/tests/integration/ci-environment.test.ts
 - docs/CI.md
 - docs/DEPLOY-RUNBOOK.md
-- MULTI-TENANT-HANDOFF.md (includes prior advice-turn edits)
+- MULTI-TENANT-HANDOFF.md
 
-No dependency/lockfile changes, application feature or schema migration.
-Implementation d3cc18b and evidence 4c3fa7c are merged in f6ccb26. Only
-MULTI-TENANT-HANDOFF.md changes in this merge turn, recording completed merge
-and cleanup; it is the post-merge documentation commit. No source/test changes.
+Implementation d3cc18b and evidence 4c3fa7c are merged in f6ccb26. Commit
+fe4ed73 recorded the merge and cleanup. The docs branch `docs/plan-first-workflow`
+carries `AGENTS.md`, `MULTI-TENANT-HANDOFF.md`, `docs/CI.md`, and
+`docs/plans/staging-release-preflight.md`. The ruleset request payload is ignored
+at `backend/.verify/master-ci-ruleset.json`.
 
-**Blocker:** none. Latest PR head had all 3 checks passed before merging;
-master push triggers CI again normally. PR watchers are off. Backend deployment
-remains manual and required-check rules/CD settings were not changed.
+**Blocker:** None for CI or branch protection. Staging preflight implementation
+is pending a task request. Backend deployment remains manual.
 
 **Read, in order:** this section → docs/DEPLOY-RUNBOOK.md → docs/DRILL-LOG.md →
 docs/STAGING-DEPLOY-GUIDE.md → docs/BACKUP-RESTORE.md. Older sections below are
 background; this section wins when status differs.
 
-**Hard rules:** commit/push only on explicit request (CI publication is now authorized);
+**Hard rules:** write/update the plan before implementing the task and link it
+here; commit/push only on explicit request;
 no secrets/DB URLs/passwords in chat or git; fresh checkout generates Prisma
 first; migrate deploy only, never migrate dev or db:seed on shared environments;
 real feature tests; preserve tenant isolation; no payments/billing work yet.
