@@ -1,7 +1,7 @@
 # PlateFlow — standing handoff (resume here)
 
 **Repo:** `/home/jabir/Projects/plateflow` — default branch `master`
-**Updated:** 2026-11-26 · required CI on master; next implementation plan saved
+**Updated:** 2026-11-26 · staging release preflight reviewed locally
 **Live staging:** API `https://plateflow-staging-api.onrender.com` · web
 `https://plateflow-nu.vercel.app` · Neon branch `staging`
 
@@ -13,9 +13,33 @@
 
 ## 0. Resume here
 
-**Status — GitHub requires a PR and passing CI on master.**
-`AGENTS.md` now requires a written implementation plan for each task. The
-staging release preflight plan is ready for a separate implementation session.
+**Status — staging release preflight implemented, verified, and reviewed locally.**
+`pnpm --filter backend release:preflight:staging --sha <full-master-sha>`
+checks the current `master` push CI and verifies that Render's pooled and direct
+database URLs match the same writable Neon staging endpoint. It rechecks
+`master` before success. [Deploy runbook §5](docs/DEPLOY-RUNBOOK.md#5-pre-deploy-checklist)
+documents how to use it for the manual staging release.
+
+Live read-only preflight passed for `544241004f790360b318ead8f2cf7001ae74881c`.
+CI run: https://github.com/Jabir7006/plateflow/actions/runs/45777517280.
+
+Local validation on Node 26.13.1, pnpm 12.4.1 and disposable Postgres 18.7:
+`pnpm --filter backend db:generate`, `pnpm lint`, `pnpm typecheck`,
+`pnpm test:unit` (**279 passed**), `pnpm --filter backend db:migrate:deploy`
+(**9 applied**), `pnpm test:integration` (**139 passed, 1 legacy-seed skip**),
+`pnpm build`, and `git diff --check` all exited 0. The disposable service and data
+were removed. Sanitized logs are under `backend/.verify/staging-preflight-validation/`.
+
+Local review checked the CLI and provider responses against the plan, including
+the exact CI attempt, pooled/direct endpoint roles, credential handling, and
+the runbook steps. It found no blocking issues. Backend lint, typecheck, and
+`git diff --check` passed. Focused reruns passed all 57 preflight unit tests and
+9 CLI integration tests on a disposable local Postgres instance.
+
+PR #5 (`docs/plan-first-workflow`) merged as `5442410`; the merged head `e4783be`
+passed CI, Vercel and Preview Comments (3/3) with no unresolved threads. It adds
+the plan-first rule to `AGENTS.md`, the staging release preflight plan, the
+handoff §0 refresh and the ruleset note in `docs/CI.md`.
 User approved activation. GitHub ruleset `28139606` is active:
 https://github.com/Jabir7006/plateflow/rules/28139606.
 Read-back of both the ruleset and effective master rules confirmed that it
@@ -23,8 +47,11 @@ targets only `refs/heads/master`, requires a PR and a passing `CI` from GitHub
 Actions (app 15368), and requires the PR branch to be up to date with master.
 There are zero required approving reviews or bypass actors, and merge, squash,
 and rebase are all permitted. Verification used the GitHub API read-back.
-Remote master is fe4ed73463927d4dd3e4434ed6956982700968d4. Its latest push run
-completed successfully on GitHub Actions:
+Remote master is 544241004f790360b318ead8f2cf7001ae74881c after the PR #5
+merge; CI on the merged head `e4783be` passed:
+https://github.com/Jabir7006/plateflow/actions/runs/45775254657. The earlier
+ruleset verification used master
+fe4ed73463927d4dd3e4434ed6956982700968d4 and its passing push run
 https://github.com/Jabir7006/plateflow/actions/runs/45645105645.
 
 PR #4 is complete.
@@ -159,14 +186,25 @@ branches removed across the cleanup and subsequent CI merge).
 No commits lost: every removed tip remains reachable from master. Details in
 gitignored backend/.verify/branch-cleanup-result.json.
 
-**Next action:** On implementation request, follow the
-[staging release preflight plan](docs/plans/staging-release-preflight.md).
-It specifies a read-only gate for the exact CI-approved SHA and the two staging
-DB targets. Later release steps stay manual until separately scoped. Future
-product priorities are self-serve onboarding, plan gating, and super-admin.
-Payments are deferred.
+**Next action:** The user authorized commit, push, PR, and merge. Follow
+[Publish and merge](docs/plans/staging-release-preflight.md#publish-and-merge)
+on `feat/staging-release-preflight`. Verify the PR head and required checks
+before merging to `master`. Future product priorities are self-serve onboarding,
+plan gating, and super-admin. Payments are deferred.
 
-**Changed / CI files (merged through PR #4):**
+**Changed (local, uncommitted):**
+
+- `backend/package.json`
+- `backend/scripts/staging-release-preflight.ts`
+- `backend/scripts/lib/staging-release-preflight.ts`
+- `backend/tests/fixtures/staging-release-preflight.ts`
+- `backend/tests/unit/scripts/staging-release-preflight.test.ts`
+- `backend/tests/integration/staging-release-preflight.test.ts`
+- `docs/DEPLOY-RUNBOOK.md`
+- `docs/plans/staging-release-preflight.md`
+- `MULTI-TENANT-HANDOFF.md` (includes the pre-existing local PR #5 notes)
+
+**Earlier CI files (merged through PR #4):**
 
 - .github/workflows/ci.yml
 - backend/package.json (ci:env command)
@@ -178,13 +216,13 @@ Payments are deferred.
 - MULTI-TENANT-HANDOFF.md
 
 Implementation d3cc18b and evidence 4c3fa7c are merged in f6ccb26. Commit
-fe4ed73 recorded the merge and cleanup. The docs branch `docs/plan-first-workflow`
-carries `AGENTS.md`, `MULTI-TENANT-HANDOFF.md`, `docs/CI.md`, and
+fe4ed73 recorded that merge and cleanup. PR #5 merged the plan-first docs at
+5442410 from `docs/plan-first-workflow`: `AGENTS.md`,
+`MULTI-TENANT-HANDOFF.md`, `docs/CI.md`, and
 `docs/plans/staging-release-preflight.md`. The ruleset request payload is ignored
 at `backend/.verify/master-ci-ruleset.json`.
 
-**Blocker:** None for CI or branch protection. Staging preflight implementation
-is pending a task request. Backend deployment remains manual.
+**Blocker:** None.
 
 **Read, in order:** this section → docs/DEPLOY-RUNBOOK.md → docs/DRILL-LOG.md →
 docs/STAGING-DEPLOY-GUIDE.md → docs/BACKUP-RESTORE.md. Older sections below are

@@ -223,6 +223,20 @@ does not deploy the application or enforce branch protection by itself.
 
 Run from the repository root unless noted.
 
+For a staging release, use the checkout at the exact SHA you plan to deploy.
+Load `PLATEFLOW_RENDER_API_KEY` and `PLATEFLOW_NEON_API_KEY` into the process
+environment through the private credential store, then run:
+
+```bash
+pnpm --filter backend release:preflight:staging --sha "$(git rev-parse HEAD)"
+```
+
+A pass prints the SHA and the link to its successful GitHub Actions run. The
+command also verifies that Render's pooled and direct URLs both match the
+same writable Neon staging endpoint. It uses provider metadata and makes
+no SQL connection. If a check fails, resolve the reported issue and rerun
+preflight before proceeding with backup, migration, or deploy.
+
 ```bash
 pnpm --filter backend lint
 pnpm --filter backend typecheck
@@ -275,7 +289,8 @@ Also confirm:
 2. Run the pre-deploy checklist (§5).
 3. Take a backup if the release runs a migration or changes data
    ([backup runbook](./BACKUP-RESTORE.md)).
-4. Deploy the backend on Render. The pre-deploy command runs
+4. Deploy the backend on Render. In staging, select the exact SHA printed by
+   preflight. The pre-deploy command runs
    `prisma migrate deploy`; the new instance must pass `/health` before traffic
    moves.
 5. Deploy the frontend on Vercel. Promote only after the preview looks correct.
@@ -285,13 +300,12 @@ Also confirm:
 
 ### 6.2 Migration rules
 
-Before a staging migration, verify **both** `DATABASE_URL` and `DIRECT_URL`
-resolve to the intended staging branch: pooled for the app, direct for Prisma
-and backups. Compare their endpoints against Neon branch metadata without
-printing credentials. A matching application URL alone does not validate the
-CLI target. On 2026-11-25, staging Render had a production `DIRECT_URL`; it was
-corrected to the verified staging endpoint before any migration was run. Keep
-that correction even when rolling back the application or Node version.
+Before a staging migration, run the preflight in §5 to verify both URLs in
+Render. If running the migration locally, also compare the local URLs against
+Neon branch metadata. Use the pooled endpoint for the app and the direct
+endpoint for Prisma and backups. On 2026-11-25, the release operator corrected
+Render's `DIRECT_URL` from production to the verified staging endpoint before
+migration. Keep that correction when rolling back the application or Node version.
 
 - `prisma migrate deploy` is the only migration command in shared environments.
 - Never run `prisma migrate dev` or `prisma db push` against staging or
