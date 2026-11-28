@@ -1,4 +1,10 @@
-import type { AuthUser, InvitePreview, LoginSchema } from "@plateflow/shared";
+import type {
+  AuthUser,
+  InvitePreview,
+  LoginSchema,
+  SignupCompleteSchema,
+} from "@plateflow/shared";
+import { randomBytes } from "node:crypto";
 import { prisma } from "../../lib/prisma.js";
 import {
   Prisma,
@@ -19,6 +25,9 @@ import {
   TOKEN_TTL,
 } from "../../constants/auth.js";
 import { compareValue, hashValue } from "../../utils/bcrypt.js";
+import { createRestaurantWithOwner } from "../../lib/provision-restaurant.js";
+import { isValidTimeZone } from "../../lib/reporting-period.js";
+import { INVALID_SIGNUP_LINK } from "./owner-signup.service.js";
 import { randomId, sha256 } from "../../utils/crypto.js";
 import {
   accessTokenSignOptions,
@@ -171,6 +180,113 @@ class AuthService {
     );
 
     return { user: toAuthUser(user), ...tokens };
+  }
+
+  /**
+   * Turns a live signup challenge into a tenant, its first OWNER and a session.
+   *
+   * The token is claimed by deleting it, so two simultaneous completions cannot
+   * both create a tenant even though bcrypt runs before the claim. The claim,
+   * the restaurant, the owner and the first refresh session commit together; a
+   * unique-constraint conflict at any point rolls all of it back.
+   */
+  async completeOwnerSignup(
+    input: SignupCompleteSchema["body"],
+    context: SessionContext = {}
+  ): Promise<AuthSession> {
+    const { token, restaurantName, timeZone, ownerName, password } = input;
+
+    // The shared schema bounds the string; only the backend can tell whether it
+    // is a named IANA zone (Temporal is not available in the browser package).
+    if (!isValidTimeZone(timeZone)) {
+      throw new AppError("Validation failed", HTTP_STATUS.BAD_REQUEST, true, [
+        {
+          field: "body.timeZone",
+          message: "Choose a valid named IANA time zone",
+        },
+      ]);
+    }
+
+    const tokenHash = sha256(token);
+
+    // Completion is unauthenticated, so reject an unknown or expired link before
+    // spending bcrypt work; otherwise invalid traffic competes with login for
+    // CPU. The transaction re-checks expiry when it claims the token.
+    const pending = await prisma.ownerSignupChallenge.findUnique({
+      where: { tokenHash },
+      select: { email: true, expiresAt: true },
+    });
+
+    if (!pending || pending.expiresAt.getTime() <= Date.now()) {
+      throw new AppError(INVALID_SIGNUP_LINK, HTTP_STATUS.BAD_REQUEST);
+    }
+
+    // Hashed before the transaction opens: bcrypt is deliberately slow, and
+    // holding a pooled connection for its duration would tie up the pool.
+    const passwordHash = await hashValue(password);
+
+    try {
+      return await prisma.$transaction(async (tx) => {
+        // Serialize with signup requests for this address so a new link cannot
+        // slip in between retirement and commit. Lock before any challenge write.
+        await tx.$queryRaw`SELECT 1 FROM (SELECT pg_advisory_xact_lock(hashtextextended(${pending.email}, 0))) AS signup_lock`;
+
+        // Claiming means deleting: matching the digest and a still-future
+        // expiry is what makes this single use, even under concurrent submits.
+        const claimed = await tx.ownerSignupChallenge.deleteMany({
+          where: { tokenHash, expiresAt: { gt: new Date() } },
+        });
+
+        if (claimed.count === 0) {
+          throw new AppError(INVALID_SIGNUP_LINK, HTTP_STATUS.BAD_REQUEST);
+        }
+
+        const { restaurant, owner } = await createRestaurantWithOwner(tx, {
+          name: restaurantName,
+          // Internal slug: the owner never chooses one, and the unique index is
+          // still the final authority if 12 random bytes ever collide.
+          slug: `signup-${randomBytes(12).toString("hex")}`,
+          timeZone,
+          ownerName,
+          ownerEmail: pending.email,
+          passwordHash,
+        });
+
+        // A resend may have issued sibling links. The address now has an
+        // account, so retire every outstanding challenge in the same commit;
+        // a failure below restores them with the rest of the transaction.
+        await tx.ownerSignupChallenge.deleteMany({
+          where: { email: pending.email },
+        });
+
+        const tokens = await this.issueTokens(
+          owner,
+          {
+            sessionId: randomId(16),
+            sessionExpiresAt: new Date(Date.now() + TOKEN_TTL.SESSION_ABSOLUTE),
+          },
+          context,
+          tx
+        );
+
+        return { user: toAuthUser({ ...owner, restaurant }), ...tokens };
+      });
+    } catch (error) {
+      // Mapped outside the transaction so the tenant, owner, session and token
+      // claim have already rolled back. The response stays generic: it names
+      // neither the email nor which unique index was hit.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        throw new AppError(
+          "This account could not be created because the email or restaurant is already in use. Sign in instead, or try again with a different restaurant name.",
+          HTTP_STATUS.CONFLICT
+        );
+      }
+
+      throw error;
+    }
   }
 
   // Read-only: the same checks acceptance runs, without spending the token, so

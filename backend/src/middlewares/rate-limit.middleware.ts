@@ -67,3 +67,23 @@ export const authLimiter = createRateLimiter({
   limit: ENV.RATE_LIMIT_AUTH_MAX,
   skipSuccessfulRequests: true,
 });
+
+// Self-serve signup is anonymous and sends mail, so it gets its own bucket. A
+// successful request is still counted: five links per IP per window, whether or
+// not each one found an unused address. Deliberately separate from authLimiter
+// so signup traffic cannot use up a staff member's login budget.
+const SIGNUP_WINDOW_MS = 15 * 60_000;
+
+export const signupRequestLimiter = createRateLimiter({
+  enabled: ENV.RATE_LIMIT_ENABLED,
+  windowMs: SIGNUP_WINDOW_MS,
+  limit: ENV.RATE_LIMIT_SIGNUP_REQUEST_MAX,
+});
+
+// Verify and complete share one bucket: they are both link attempts, and a
+// caller flipping between them should not get two quotas.
+export const signupLinkLimiter = createRateLimiter({
+  enabled: ENV.RATE_LIMIT_ENABLED,
+  windowMs: SIGNUP_WINDOW_MS,
+  limit: ENV.RATE_LIMIT_SIGNUP_LINK_MAX,
+});

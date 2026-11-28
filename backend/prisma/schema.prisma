@@ -166,6 +166,26 @@ model RefreshToken {
   @@index([userId, expiresAt])
 }
 
+// A pre-tenant signup challenge: it holds the address being verified and the
+// digest of the link that proves it. No user or restaurant exists until the
+// completed form is submitted, so this table carries no foreign keys.
+model OwnerSignupChallenge {
+  id          String   @id @default(cuid())
+  // Normalized (trimmed, lower-cased). Not unique: a resend adds a fresh link
+  // while older links stay usable until their own expiry.
+  email       String
+  // SHA-256 of the raw link token; the raw value only exists in the email.
+  tokenHash   String   @unique
+  expiresAt   DateTime
+  // Earliest time another link may be requested. The newest row controls the
+  // per-address cooldown under a transaction-scoped advisory lock.
+  resendAfter DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([email])
+  @@index([expiresAt])
+}
+
 enum Role {
   OWNER
   MANAGER

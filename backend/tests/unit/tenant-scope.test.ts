@@ -367,6 +367,40 @@ describe("tenant-scope guard (analysis)", () => {
     expect(messages("const rows = prisma.$queryRawUnsafe('SELECT 1');")).toHaveLength(1);
   });
 
+  it("limits a raw SQL exception to its documented template", () => {
+    const entry: ScopeAllowlistEntry = {
+      file: "src/example.ts",
+      functionName: "lock",
+      model: "$raw",
+      method: "$queryRaw",
+      kind: "where",
+      keys: [],
+      rawSqlTemplate:
+        "SELECT pg_try_advisory_xact_lock(hashtextextended(${email}, 0)) AS locked",
+      reason: "test fixture",
+    };
+    const usage = new Map([[entry, 0]]);
+
+    const violations = analyzeSource(
+      "src/example.ts",
+      `
+        async function lock(email: string) {
+          await prisma.$queryRaw\`SELECT pg_try_advisory_xact_lock(hashtextextended(\${email}, 0)) AS locked\`;
+          await prisma.$queryRaw\`DELETE FROM "User"\`;
+          await prisma.$queryRaw\`SELECT pg_try_advisory_xact_lock(hashtextextended(\${email}, 0)) AS locked, (SELECT "email" FROM "User" LIMIT 1) AS leaked\`;
+        }
+      `,
+      usage
+    );
+
+    // Only the exact lock statement is covered. An unrelated query and a
+    // modified lock statement with an extra tenant read both still fail.
+    expect(violations).toHaveLength(2);
+    expect(violations[0]!.rawSql).toContain('DELETE FROM "User"');
+    expect(violations[1]!.rawSql).toContain("AS leaked");
+    expect(usage.get(entry)).toBe(1);
+  });
+
   it("follows the $transaction client parameter", () => {
     expect(
       messages(`

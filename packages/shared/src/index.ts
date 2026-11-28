@@ -20,6 +20,9 @@ export type {
   InviteSchema,
   AcceptInviteSchema,
   VerifyInviteSchema,
+  SignupRequestSchema,
+  SignupVerifySchema,
+  SignupCompleteSchema,
 } from "./schemas/auth.schema.js";
 export type {
   Role,
@@ -27,6 +30,7 @@ export type {
   AuthUser,
   InvitePreview,
   InvitedStaff,
+  OwnerSignupPreview,
 } from "./types/auth.types.js";
 export type {
   CreateMenuCategorySchema,

@@ -33,6 +33,12 @@ export interface InvitePreview {
   expiresAt: string;
 }
 
+// What a live signup link discloses before completion: the verified address,
+// and nothing about a restaurant (none exists yet).
+export interface OwnerSignupPreview {
+  email: string;
+}
+
 export const ROLE_LABELS: Record<InvitableRole, string> = {
   MANAGER: "Manager",
   CHEF: "Chef",

@@ -3,6 +3,9 @@ import type {
   AuthUser,
   InvitePreview,
   LoginSchema,
+  OwnerSignupPreview,
+  SignupCompleteSchema,
+  SignupRequestSchema,
 } from "@plateflow/shared"
 import { ApiError, apiRequest } from "@/lib/api-client"
 
@@ -27,6 +30,36 @@ export function verifyInvite(token: string): Promise<InvitePreview> {
 
 export function acceptInvite(input: AcceptInviteInput): Promise<AuthUser> {
   return apiRequest<AuthUser>("/auth/accept-invite", {
+    method: "POST",
+    body: input,
+  })
+}
+
+export type SignupRequestInput = SignupRequestSchema["body"]
+export type SignupCompleteInput = SignupCompleteSchema["body"]
+
+// The request endpoint answers 202 with an intentionally generic message: it
+// must not reveal whether the address already has an account.
+export async function requestSignup(
+  input: SignupRequestInput
+): Promise<null> {
+  return apiRequest<null>("/auth/signup/request", {
+    method: "POST",
+    body: input,
+  })
+}
+
+// Read-only preview: proves the fragment token is live and returns the address
+// it was issued to, without consuming it.
+export function verifySignup(token: string): Promise<OwnerSignupPreview> {
+  return apiRequest<OwnerSignupPreview>("/auth/signup/verify", {
+    method: "POST",
+    body: { token },
+  })
+}
+
+export function completeSignup(input: SignupCompleteInput): Promise<AuthUser> {
+  return apiRequest<AuthUser>("/auth/signup/complete", {
     method: "POST",
     body: input,
   })

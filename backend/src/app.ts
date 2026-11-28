@@ -7,6 +7,7 @@ import {
 } from "./middlewares/error.middleware.js";
 import { securityHeaders } from "./middlewares/security.middleware.js";
 import authRoutes from "./modules/auth/auth.routes.js";
+import ownerSignupRoutes from "./modules/auth/owner-signup.routes.js";
 import staffRoutes from "./modules/staff/staff.routes.js";
 import menuRoutes from "./modules/menu/menu.routes.js";
 import tableRoutes from "./modules/table/table.routes.js";
@@ -31,6 +32,10 @@ app.use(
     credentials: true,
   })
 );
+// Self-serve signup keeps its flag, origin, content-type and no-store checks
+// ahead of body parsing, so malformed or oversized bodies cannot bypass them.
+app.use("/api/v1/auth/signup", ownerSignupRoutes);
+
 // A request larger than this is rejected by body-parser before any route runs.
 // Image uploads use multipart/Multer, whose own 5MB limit is separate.
 app.use(express.json({ limit: ENV.JSON_BODY_LIMIT }));

@@ -10,7 +10,11 @@ import AppError from "../../../src/utils/AppError.js";
 import { HTTP_STATUS } from "../../../src/constants/http.js";
 
 function mockResponse() {
-  const res = { status: vi.fn(), json: vi.fn() };
+  const res = {
+    status: vi.fn(),
+    json: vi.fn(),
+    locals: {} as Record<string, unknown>,
+  };
   res.status.mockReturnValue(res);
   res.json.mockReturnValue(res);
   return res;
@@ -148,6 +152,81 @@ describe("errorHandler", () => {
       statusCode: 500,
       message: "Something went wrong",
     });
+  });
+
+  it("redacts signup failures even when the path casing differs", () => {
+    const res = mockResponse();
+    const secret = "password=correct horse battery";
+    const signupReq = {
+      path: "/API/V1/AUTH/SIGNUP/COMPLETE",
+      originalUrl: "/API/V1/AUTH/SIGNUP/COMPLETE?token=raw-link-token",
+      method: "POST",
+    } as Request;
+
+    errorHandler(
+      new Error(`database failed while writing ${secret}`),
+      signupReq,
+      res as unknown as Response,
+      next
+    );
+
+    const logged = JSON.stringify(vi.mocked(console.error).mock.calls);
+    expect(logged).not.toContain(secret);
+    expect(logged).not.toContain("raw-link-token");
+    expect(logged).toContain("unexpected");
+    expect(res.json).toHaveBeenCalledWith({
+      success: false,
+      statusCode: 500,
+      message: "Something went wrong",
+    });
+  });
+
+  it("redacts a marked signup mount root that the URL matcher would miss", () => {
+    const res = mockResponse();
+    res.locals.signupRoute = true;
+    const secret = "body email owner@example.com token=raw-link-token";
+    const signupReq = {
+      path: "/api/v1/auth/signup",
+      originalUrl: "/api/v1/auth/signup?probe=1",
+      method: "POST",
+    } as Request;
+
+    errorHandler(
+      new Error(`parser failed after reading ${secret}`),
+      signupReq,
+      res as unknown as Response,
+      next
+    );
+
+    const logged = JSON.stringify(vi.mocked(console.error).mock.calls);
+    expect(logged).not.toContain(secret);
+    expect(logged).not.toContain("owner@example.com");
+    expect(logged).toContain("unexpected");
+    expect(res.json).toHaveBeenCalledWith({
+      success: false,
+      statusCode: 500,
+      message: "Something went wrong",
+    });
+  });
+
+  it("keeps full diagnostics for non-signup failures", () => {
+    const res = mockResponse();
+
+    errorHandler(
+      new Error("connection string leaked here"),
+      req,
+      res as unknown as Response,
+      next
+    );
+
+    expect(console.error).toHaveBeenCalledWith(
+      "Error:",
+      expect.objectContaining({ message: "connection string leaked here" })
+    );
+    expect(console.error).toHaveBeenCalledWith(
+      "Unhandled error:",
+      expect.objectContaining({ message: "connection string leaked here" })
+    );
   });
 });
 

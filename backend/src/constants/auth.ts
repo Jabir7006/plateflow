@@ -17,7 +17,14 @@ export const TOKEN_TTL = {
   REFRESH: 30 * DAY,
   SESSION_ABSOLUTE: 90 * DAY,
   STAFF_INVITE: 7 * DAY,
+  // A self-serve signup link proves one email for long enough to fill the form,
+  // but no longer. Rotation and expiry are both enforced at completion.
+  OWNER_SIGNUP: 30 * MINUTE,
 } as const;
+
+// One link per address per cooldown. Also the serialization window for
+// concurrent requests across IPs.
+export const SIGNUP_RESEND_COOLDOWN = 60 * SECOND;
 
 export const REFRESH_REUSE_GRACE = 10 * SECOND;
 

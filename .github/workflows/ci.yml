@@ -85,6 +85,9 @@ jobs:
       - name: Unit tests
         run: pnpm test:unit
 
+      - name: Frontend tests
+        run: pnpm --filter frontend test
+
       - name: Apply migrations to the CI database
         run: pnpm --filter backend db:migrate:deploy
 
