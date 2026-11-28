@@ -145,6 +145,9 @@ or reject every menu image.
 | `RATE_LIMIT_WRITE_MAX` | `20` |
 | `RATE_LIMIT_AUTH_WINDOW_MS` | `900000` |
 | `RATE_LIMIT_AUTH_MAX` | `20` |
+| `SELF_SERVE_SIGNUP_ENABLED` | `false` until the onboarding rollout is approved; `true` exposes the three `/auth/signup/*` routes |
+| `RATE_LIMIT_SIGNUP_REQUEST_MAX` | `5` requests per IP per 15-minute window for link requests |
+| `RATE_LIMIT_SIGNUP_LINK_MAX` | `20` shared requests per IP per 15-minute window for verify and complete |
 
 Do **not** set `TEST_DATABASE_URL` in Render. The integration suite is a local
 and CI concern, and it refuses to run without a disposable database anyway.
@@ -160,6 +163,11 @@ build time.
 | `NEXT_PUBLIC_API_URL` | `/api/v1` — keep the same-origin proxy |
 | `NEXT_PUBLIC_WS_URL` | `https://api.example.com` — no trailing slash |
 | `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` | Same cloud name as the backend |
+| `NEXT_PUBLIC_SELF_SERVE_SIGNUP_ENABLED` | `false` by default; `true` builds `/signup` and the login-page link |
+
+The signup flag is compiled in. Changing it requires a new Vercel deployment,
+and the backend `SELF_SERVE_SIGNUP_ENABLED` must agree or the UI will show a
+flow the API rejects.
 
 If `NEXT_PUBLIC_API_URL` is pointed at the API origin directly, cookies become
 cross-site and `SameSite=strict` will block them. Keep the rewrite.
@@ -410,6 +418,22 @@ Use [Backup and restore](./BACKUP-RESTORE.md). In short:
 The multi-tenant contract migration invalidates pre-tenant staff sessions.
 After the first rollout that includes it, every existing user must log in again.
 Tell support and include it in the release note.
+
+### 8.5 Self-serve signup
+
+Disable the backend flag first (`SELF_SERVE_SIGNUP_ENABLED=false` and redeploy)
+so new link requests, previews, and completions immediately return `404`.
+Then rebuild Vercel with `NEXT_PUBLIC_SELF_SERVE_SIGNUP_ENABLED=false` to
+remove the pages and the login link. This order prevents a live form from
+posting to a route that no longer exists.
+
+No down-migration is required. `OwnerSignupChallenge` rows are pre-tenant and
+harmless once the routes are closed; they expire after 30 minutes and are
+cleaned up during future issuance. Existing restaurants, owners, and sessions
+keep working through login and the admin CLI. After the cause is fixed, re-enable
+the backend flag, smoke-test with a controlled inbox, then re-enable the frontend
+flag and rebuild. Challenges issued during the incident are stale; ask those
+owners to request a fresh link.
 
 ---
 

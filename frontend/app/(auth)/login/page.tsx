@@ -1,5 +1,7 @@
+import Link from "next/link"
 import LoginForm from "@/features/auth/components/login-form"
 import { BrandLogo } from "@/components/brand-logo"
+import { isSelfServeSignupEnabled } from "@/features/auth/signup-flag"
 import { Mail } from "lucide-react"
 
 export default function LoginPage() {
@@ -24,6 +26,18 @@ export default function LoginPage() {
             </p>
           </div>
         </div>
+
+        {isSelfServeSignupEnabled ? (
+          <p className="mt-4 text-center text-sm text-muted-foreground">
+            New to PlateFlow?{" "}
+            <Link
+              href="/signup"
+              className="text-primary underline underline-offset-2 hover:text-primary/80"
+            >
+              Create a restaurant account
+            </Link>
+          </p>
+        ) : null}
       </div>
     </main>
   )

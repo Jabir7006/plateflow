@@ -27,6 +27,10 @@ const EXEMPT_MODELS = new Set([
   "restaurant",
   "verificationToken",
   "refreshToken",
+  // Pre-tenant signup challenge: it exists before a restaurant or user does, so
+  // it has no restaurantId to scope. Rows are keyed by the normalized email and
+  // the token digest, which are already globally unique.
+  "ownerSignupChallenge",
 ]);
 
 // Child models inherit the tenant from their parent. A standalone query would
@@ -108,6 +112,12 @@ export interface ScopeAllowlistEntry {
   kind: "where" | "data";
   /** Sorted top-level keys, so a differently-shaped call does not inherit the exception. */
   keys: readonly string[];
+  /**
+   * For `$raw` entries, the complete whitespace-normalized SQL template. An
+   * exact match keeps an exception from covering a different raw query (or an
+   * extra tenant read in the same statement).
+   */
+  rawSqlTemplate?: string;
   /** Why a global read is safe here. Required so the exception documents itself. */
   reason: string;
 }
@@ -152,6 +162,40 @@ const DEFAULT_ALLOWLIST: readonly ScopeAllowlistEntry[] = [
     keys: ["email"],
     reason: "Cross-tenant invite guard: must look up the globally unique email to refuse another restaurant's account.",
   },
+  {
+    file: "src/modules/auth/owner-signup.service.ts",
+    functionName: "requestOwnerSignup",
+    model: "user",
+    method: "findUnique",
+    kind: "where",
+    keys: ["email"],
+    reason:
+      "Owner signup: the address is globally unique and any existing account (owner, invited or disabled) must get the same generic 202 with no link.",
+  },
+  {
+    file: "src/modules/auth/owner-signup.service.ts",
+    functionName: "requestOwnerSignup",
+    model: "$raw",
+    method: "$queryRaw",
+    kind: "where",
+    keys: [],
+    rawSqlTemplate:
+      "SELECT pg_try_advisory_xact_lock(hashtextextended(${email}, 0)) AS locked",
+    reason:
+      "Transaction-scoped nonblocking PostgreSQL advisory lock keyed by the normalized email; it reads no tenant rows.",
+  },
+  {
+    file: "src/modules/auth/auth.service.ts",
+    functionName: "completeOwnerSignup",
+    model: "$raw",
+    method: "$queryRaw",
+    kind: "where",
+    keys: [],
+    rawSqlTemplate:
+      "SELECT 1 FROM (SELECT pg_advisory_xact_lock(hashtextextended(${pending.email}, 0))) AS signup_lock",
+    reason:
+      "Blocking per-address advisory lock before claiming a signup challenge; it reads no tenant rows.",
+  },
 ];
 
 interface Binding {
@@ -168,6 +212,8 @@ export interface Violation {
   method: string;
   kind: "where" | "data";
   keys: string[] | null;
+  /** Literal SQL for a tagged `$raw` template, used to narrow an allowlist entry. */
+  rawSql?: string;
   message: string;
 }
 
@@ -262,7 +308,8 @@ export function analyzeSource(
                 model: "$raw",
                 method: tag.name.text,
                 kind: "where",
-                keys: null,
+                keys: [],
+                rawSql: node.template.getText().slice(1, -1),
                 message: `${tag.name.text} bypasses the Prisma query builder; scope cannot be verified statically.`,
               },
               usage
@@ -323,7 +370,7 @@ function checkCall(
         model,
         method,
         kind: "where",
-        keys: null,
+        keys: [],
         message: `${method} bypasses the Prisma query builder; scope cannot be verified statically.`,
       })
     );
@@ -1105,7 +1152,8 @@ function violationAt(
         entry.model === detail.model &&
         entry.method === detail.method &&
         entry.kind === detail.kind &&
-        sameKeys(entry.keys, detail.keys)
+        sameKeys(entry.keys, detail.keys) &&
+        rawSqlMatches(entry, detail)
     );
     if (match) {
       // An allowlisted shape is an explicit, documented exception — not a
@@ -1123,6 +1171,7 @@ function violationAt(
     method: detail.method,
     kind: detail.kind,
     keys: detail.keys,
+    rawSql: detail.rawSql,
     message:
       `${context.file}:${line} [${functionNameValue}] ` +
       `${detail.model}.${detail.method}: ${detail.message}`,
@@ -1132,6 +1181,21 @@ function violationAt(
 function sameKeys(a: readonly string[], b: string[] | null): boolean {
   if (b === null || a.length !== b.length) return false;
   return a.every((key, index) => key === b[index]);
+}
+
+function rawSqlMatches(
+  entry: ScopeAllowlistEntry,
+  detail: Pick<Violation, "model" | "rawSql">
+): boolean {
+  if (detail.model !== "$raw") return true;
+
+  if (!entry.rawSqlTemplate || !detail.rawSql) return false;
+
+  return normalizeRawSql(detail.rawSql) === entry.rawSqlTemplate;
+}
+
+function normalizeRawSql(sql: string): string {
+  return sql.replace(/\s+/g, " ").trim();
 }
 
 function findDuplicates(
@@ -1148,6 +1212,7 @@ function findDuplicates(
       entry.method,
       entry.kind,
       entry.keys.join(","),
+      entry.rawSqlTemplate ?? "",
     ].join("\u0000");
 
     if (seen.has(key)) duplicates.push(entry);

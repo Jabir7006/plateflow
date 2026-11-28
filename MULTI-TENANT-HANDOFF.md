@@ -1,7 +1,7 @@
 # PlateFlow — standing handoff (resume here)
 
 **Repo:** `/home/jabir/Projects/plateflow` — default branch `master`
-**Updated:** 2026-11-26 · staging release preflight reviewed locally
+**Updated:** 2026-11-28 · self-serve onboarding implemented, verified, and pushed for review (PR #7)
 **Live staging:** API `https://plateflow-staging-api.onrender.com` · web
 `https://plateflow-nu.vercel.app` · Neon branch `staging`
 
@@ -13,7 +13,42 @@
 
 ## 0. Resume here
 
-**Status — staging release preflight implemented, verified, and reviewed locally.**
+**Status — self-serve restaurant onboarding implemented, verified, and pushed for review.**
+Email-first signup (request → verify → complete) creates the restaurant, first
+OWNER, and session in one transaction; the challenge table stores only a
+SHA-256 digest. The guest UI at `/signup` and `/signup/complete` sits behind the
+build-time `NEXT_PUBLIC_SELF_SERVE_SIGNUP_ENABLED`; the API sits behind
+`SELF_SERVE_SIGNUP_ENABLED`. All three remediation passes are included:
+shape-only signup logs, cutoff-guarded cleanup, in-memory retry, pre-bcrypt
+challenge lookup, append-only multi-link challenges under a per-email lock,
+signup routes ahead of the global parsers, same-tab `hashchange` capture,
+event-based Prisma error logging, nonblocking issuance lock, the
+`res.locals.signupRoute` marker, form reset on token replacement, deferred link
+replacement during completion, and an exact normalized SQL template for the
+tenant-scope exceptions. The multi-link change adds migration
+`20261126200000_owner_signup_multiple_links`.
+Final verification passed: backend unit (**299**), frontend Vitest (27), full
+integration (16 files, **161 passed, 1 documented skip**, including 22 signup
+tests after 11 migrations), lint/typecheck, `git diff --check`, and frontend
+production builds with the flag off and on. Real browser acceptance on a
+disposable database filled link A, changed to link B during an in-flight
+completion, confirmed A stayed visible until it failed, then confirmed B replaced
+it with cleared fields; submitting B created the active OWNER and restaurant and
+landed on `/dashboard`. No merge or rollout was performed.
+
+**Latest review:** All eight findings from the three review passes are fixed. No
+new actionable findings; the final acceptance run above covers the same-tab
+replacement, deferred application, reset, and real completion paths.
+
+**Status — staging release preflight merged to master in PR #6.**
+GitHub merged head `7068f98063758ca87c088ed04a9c2312bc999ab1` as
+`269630a760901adbc62bbee75e4c1b5efa48a29f`. CI, Vercel, and Preview Comments
+passed (3/3) with zero unresolved review threads. Commit hooks passed backend
+and frontend lint/typecheck. Local `master` and `origin/master` resolve to the
+merge commit.
+https://github.com/Jabir7006/plateflow/pull/6
+https://github.com/Jabir7006/plateflow/actions/runs/45783462984
+
 `pnpm --filter backend release:preflight:staging --sha <full-master-sha>`
 checks the current `master` push CI and verifies that Render's pooled and direct
 database URLs match the same writable Neon staging endpoint. It rechecks
@@ -47,8 +82,8 @@ targets only `refs/heads/master`, requires a PR and a passing `CI` from GitHub
 Actions (app 15368), and requires the PR branch to be up to date with master.
 There are zero required approving reviews or bypass actors, and merge, squash,
 and rebase are all permitted. Verification used the GitHub API read-back.
-Remote master is 544241004f790360b318ead8f2cf7001ae74881c after the PR #5
-merge; CI on the merged head `e4783be` passed:
+The PR #5 merge commit was 544241004f790360b318ead8f2cf7001ae74881c.
+CI on the PR head `e4783be` passed:
 https://github.com/Jabir7006/plateflow/actions/runs/45775254657. The earlier
 ruleset verification used master
 fe4ed73463927d4dd3e4434ed6956982700968d4 and its passing push run
@@ -186,13 +221,28 @@ branches removed across the cleanup and subsequent CI merge).
 No commits lost: every removed tip remains reachable from master. Details in
 gitignored backend/.verify/branch-cleanup-result.json.
 
-**Next action:** The user authorized commit, push, PR, and merge. Follow
-[Publish and merge](docs/plans/staging-release-preflight.md#publish-and-merge)
-on `feat/staging-release-preflight`. Verify the PR head and required checks
-before merging to `master`. Future product priorities are self-serve onboarding,
-plan gating, and super-admin. Payments are deferred.
+**Next action:** Onboarding implementation is committed and pushed on
+`feat/self-serve-onboarding`; PR #7 is ready for CI and merge review. The
+[self-serve onboarding plan](docs/plans/self-serve-onboarding.md) describes
+preflight, migration, backend flag, controlled-inbox smoke test, frontend
+flag and rebuild. Enabling public signup still needs a verified Resend sender
+for the intended audience and rollout approval. Plan gating, subscriptions,
+and super-admin follow onboarding. Payments are deferred.
 
-**Changed (local, uncommitted):**
+**Changed (pushed in PR #7):**
+
+- `packages/shared/src/schemas/auth.schema.ts`, `types/auth.types.ts`, `index.ts`
+- `backend/prisma/schema.prisma`, `backend/prisma/migrations/20261126190000_owner_signup_challenge/`, `backend/prisma/migrations/20261126200000_owner_signup_multiple_links/`, `backend/prisma/create-restaurant.ts`
+- `backend/src/lib/{prisma,provision-restaurant}.ts`, `backend/src/modules/auth/owner-signup.{routes,service,template}.ts`
+- `backend/src/app.ts`, `backend/src/config/env.ts`, `backend/src/constants/{auth,http}.ts`, `backend/src/lib/mail.ts`, `backend/src/middlewares/{error,rate-limit}.middleware.ts`, `backend/src/modules/auth/{auth.controller,auth.service}.ts`
+- `backend/tests/unit/schemas/owner-signup.schema.test.ts`, `backend/tests/unit/lib/owner-signup-template.test.ts`, `backend/tests/unit/lib/tenant-scope.ts`, `backend/tests/unit/tenant-scope.test.ts`, `backend/tests/unit/middlewares/error.test.ts`, `backend/tests/integration/owner-signup*.test.ts` (4 suites)
+- `frontend/app/(auth)/signup/`, `frontend/features/auth/{api,redirects,signup-flag,signup-token,signup-retry}.ts`, `frontend/features/auth/components/signup-{request,complete}-form.tsx`, `frontend/app/(auth)/login/page.tsx`, `frontend/features/auth/{redirects,signup-token,signup-retry}.test.ts`
+- `frontend/package.json` (Vitest + test script), `pnpm-lock.yaml`, `.github/workflows/ci.yml` (frontend test step)
+- `backend/.env.example`, `frontend/.env.example`
+- `docs/plans/self-serve-onboarding.md`, `docs/STAGING-DEPLOY-GUIDE.md`, `docs/DEPLOY-RUNBOOK.md`
+- `MULTI-TENANT-HANDOFF.md` (includes the PR #6 post-merge record and onboarding review)
+
+**Changed (merged through PR #6):**
 
 - `backend/package.json`
 - `backend/scripts/staging-release-preflight.ts`
@@ -202,7 +252,7 @@ plan gating, and super-admin. Payments are deferred.
 - `backend/tests/integration/staging-release-preflight.test.ts`
 - `docs/DEPLOY-RUNBOOK.md`
 - `docs/plans/staging-release-preflight.md`
-- `MULTI-TENANT-HANDOFF.md` (includes the pre-existing local PR #5 notes)
+- `MULTI-TENANT-HANDOFF.md`
 
 **Earlier CI files (merged through PR #4):**
 
@@ -222,7 +272,8 @@ fe4ed73 recorded that merge and cleanup. PR #5 merged the plan-first docs at
 `docs/plans/staging-release-preflight.md`. The ruleset request payload is ignored
 at `backend/.verify/master-ci-ruleset.json`.
 
-**Blocker:** None.
+**Blocker:** Public signup rollout awaits approval and a Resend sender verified
+for the intended audience.
 
 **Read, in order:** this section → docs/DEPLOY-RUNBOOK.md → docs/DRILL-LOG.md →
 docs/STAGING-DEPLOY-GUIDE.md → docs/BACKUP-RESTORE.md. Older sections below are

@@ -91,6 +91,7 @@ you want staging always warm.
    | `NEXT_PUBLIC_API_URL` | `/api/v1` |
    | `NEXT_PUBLIC_WS_URL` | `https://plateflow-staging-api.onrender.com` |
    | `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` | same as backend cloud |
+   | `NEXT_PUBLIC_SELF_SERVE_SIGNUP_ENABLED` | `false` — flip to `true` and redeploy to expose `/signup` |
 
 7. **Deploy.** The URL will be `https://<project>-<hash>.vercel.app`.
 8. Open it. It must load the landing page, and `/login` must reach the form.
@@ -126,7 +127,33 @@ RATE_LIMIT_PUBLIC_MAX=120
 RATE_LIMIT_WRITE_MAX=20
 RATE_LIMIT_AUTH_WINDOW_MS=900000
 RATE_LIMIT_AUTH_MAX=20
+SELF_SERVE_SIGNUP_ENABLED=false
+RATE_LIMIT_SIGNUP_REQUEST_MAX=5
+RATE_LIMIT_SIGNUP_LINK_MAX=20
 ```
+
+`SELF_SERVE_SIGNUP_ENABLED=false` keeps `/api/v1/auth/signup/*` at `404`.
+The two signup limits are the per-IP request budget for a 15-minute window:
+link requests and the shared verify/complete bucket. Counts include successful
+calls. On rollback, turn the backend flag off **before** rebuilding the frontend.
+
+### 3.1 Opening self-serve signup
+
+Only enable after the additive `owner_signup_challenge` migration is applied,
+`APP_URL` is the exact Vercel origin, rate limits are on, and Resend has a
+verified sender for the intended recipient scope. Resend rejects unverified
+domains, so test with a controlled inbox first.
+
+1. Deploy with both flags off. Confirm `/signup` and the login-page link are
+   absent, and `POST /api/v1/auth/signup/request` returns `404`.
+2. Set the backend `SELF_SERVE_SIGNUP_ENABLED=true` and redeploy the API. Request
+   one link from a controlled inbox; confirm delivery, the `#token=` fragment,
+   the 30-minute expiry, and the 60-second resend cooldown.
+3. Set `NEXT_PUBLIC_SELF_SERVE_SIGNUP_ENABLED=true` in Vercel and rebuild the
+   frontend — this value is baked in at build time, not read at runtime.
+4. Complete one signup end to end. The new owner lands on `/dashboard`; the
+   link stops working after completion, and login with the chosen password works.
+5. For rollback, see [Deploy runbook §8.5](./DEPLOY-RUNBOOK.md#85-self-serve-signup).
 
 Do **not** set `TEST_DATABASE_URL` on Render. Do **not** run `pnpm db:seed`
 against staging or production.

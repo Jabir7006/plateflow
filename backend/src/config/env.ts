@@ -66,4 +66,17 @@ export const ENV = {
     15 * 60_000
   ),
   RATE_LIMIT_AUTH_MAX: getPositiveInteger("RATE_LIMIT_AUTH_MAX", 20),
+  RATE_LIMIT_SIGNUP_REQUEST_MAX: getPositiveInteger(
+    "RATE_LIMIT_SIGNUP_REQUEST_MAX",
+    5
+  ),
+  RATE_LIMIT_SIGNUP_LINK_MAX: getPositiveInteger(
+    "RATE_LIMIT_SIGNUP_LINK_MAX",
+    20
+  ),
+
+  // Self-serve restaurant signup is opt-in: keep it off until a verified sender
+  // and rate limiting are confirmed for the target deployment. The frontend has
+  // its own build-time NEXT_PUBLIC_SELF_SERVE_SIGNUP_ENABLED switch.
+  SELF_SERVE_SIGNUP_ENABLED: getBoolean("SELF_SERVE_SIGNUP_ENABLED", false),
 } as const;

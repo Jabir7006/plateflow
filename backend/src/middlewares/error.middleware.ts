@@ -6,6 +6,26 @@ import { ENV } from "../config/env.js";
 
 const isDevelopment = ENV.NODE_ENV === "development";
 
+// Express routing is case-insensitive by default; this matcher must be too, or
+// "/API/V1/AUTH/SIGNUP/..." would take the logging path for authenticated APIs.
+const SIGNUP_ROUTE = /^\/api\/v1\/auth\/signup(?:\/|$)/i;
+
+// Signup requests are unauthenticated and their bodies carry an email, a raw
+// link token and a password. Only shape-level facts may be logged.
+const isSignupRequest = (req: Request): boolean =>
+  SIGNUP_ROUTE.test(req.originalUrl ?? req.path);
+
+const classifyError = (err: Error | AppError): string => {
+  if (err instanceof AppError) return `app_error_${err.statusCode}`;
+  if (err.name === "ZodError") return "validation";
+  if (err instanceof SyntaxError) return "invalid_json";
+  if (err instanceof Prisma.PrismaClientKnownRequestError)
+    return `prisma_${err.code}`;
+  if (err instanceof Prisma.PrismaClientValidationError)
+    return "prisma_validation";
+  return "unexpected";
+};
+
 const sendErrorResponse = (
   res: Response,
   statusCode: number,
@@ -49,14 +69,27 @@ export const errorHandler = (
   res: Response,
   _next: NextFunction
 ) => {
+  // The signup router marks res.locals before any guard runs. The URL matcher is
+  // only a backstop for failures (security headers, CORS) before that router.
+  const signupRequest =
+    res.locals.signupRoute === true || isSignupRequest(req);
+
   // Log error
-  console.error("Error:", {
-    name: err.name,
-    message: err.message,
-    stack: err.stack,
-    path: req.path,
-    method: req.method,
-  });
+  if (signupRequest) {
+    console.error("Signup request failed", {
+      method: req.method,
+      route: (req.originalUrl ?? req.path).split("?")[0],
+      classification: classifyError(err),
+    });
+  } else {
+    console.error("Error:", {
+      name: err.name,
+      message: err.message,
+      stack: err.stack,
+      path: req.path,
+      method: req.method,
+    });
+  }
 
   // Operational AppError — safe to expose message
   if (err instanceof AppError) {
@@ -117,12 +150,14 @@ export const errorHandler = (
     return sendErrorResponse(res, HTTP_STATUS.UNAUTHORIZED, "Token expired");
   }
 
-  // Unknown/unexpected errors — log full stack, expose generic message to client
-  console.error("Unhandled error:", err);
+  // Unknown/unexpected errors. Signup already logged a shape-only classification
+  // above and must never receive the raw message, even in development: parser
+  // and database errors can embed the submitted body or a connection string.
+  if (!signupRequest) console.error("Unhandled error:", err);
   return sendErrorResponse(
     res,
     HTTP_STATUS.INTERNAL_SERVER_ERROR,
-    isDevelopment ? err.message : "Something went wrong"
+    isDevelopment && !signupRequest ? err.message : "Something went wrong"
   );
 };
 

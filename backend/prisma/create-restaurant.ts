@@ -7,6 +7,7 @@ import { z } from "zod";
 import { PrismaClient, Prisma } from "../src/generated/prisma/client.js";
 import { hashValue as hashPassword } from "../src/utils/bcrypt.js";
 import { isValidTimeZone } from "../src/lib/reporting-period.js";
+import { createRestaurantWithOwner } from "../src/lib/provision-restaurant.js";
 
 // Admin-provisions a restaurant and its first OWNER. The password never rides a
 // command-line argument (that leaks it into shell history and `ps`): it is read
@@ -126,22 +127,16 @@ async function main() {
 
   try {
     const { restaurant, owner } = await prisma
-      .$transaction(async (tx) => {
-        const restaurant = await tx.restaurant.create({
-          data: { name, slug, timeZone },
-        });
-        const owner = await tx.user.create({
-          data: {
-            fullName: ownerName,
-            email: ownerEmail,
-            password: passwordHash,
-            role: "OWNER",
-            status: "ACTIVE",
-            restaurantId: restaurant.id,
-          },
-        });
-        return { restaurant, owner };
-      })
+      .$transaction((tx) =>
+        createRestaurantWithOwner(tx, {
+          name,
+          slug,
+          timeZone,
+          ownerName,
+          ownerEmail,
+          passwordHash,
+        })
+      )
       .catch((error: unknown) => {
         if (
           error instanceof Prisma.PrismaClientKnownRequestError &&

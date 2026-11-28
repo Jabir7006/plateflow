@@ -20,12 +20,10 @@ type SendEmailParams = {
  * has to be checked explicitly — an unchecked send reports success and leaves
  * the recipient with nothing.
  */
-export const sendEmail = async ({
-  to,
-  subject,
-  html,
-  text,
-}: SendEmailParams): Promise<void> => {
+const send = async (
+  { to, subject, html, text }: SendEmailParams,
+  sensitive: boolean
+): Promise<void> => {
   const { error } = await resend.emails.send({
     from: ENV.MAIL_FROM,
     to,
@@ -38,12 +36,20 @@ export const sendEmail = async ({
     return;
   }
 
-  console.error("Failed to send email:", { to, subject, error });
+  // A signup address is personal data and the request is anonymous: log only a
+  // classification so the operator can diagnose without an address or a body.
+  if (sensitive) {
+    console.error("Signup email delivery failed", {
+      classification: error.name,
+    });
+  } else {
+    console.error("Failed to send email:", { to, subject, error });
+  }
 
   // The only failure worth telling the caller to retry. Everything else —
   // an unverified sender, a revoked key — needs a config fix, not a retry, so
   // it is reported as a generic upstream failure rather than surfaced verbatim.
-  if (error.name === "rate_limit_exceeded") {
+  if (!sensitive && error.name === "rate_limit_exceeded") {
     throw new AppError(
       "Email service is rate limited, please try again shortly",
       HTTP_STATUS.SERVICE_UNAVAILABLE
@@ -51,7 +57,19 @@ export const sendEmail = async ({
   }
 
   throw new AppError(
-    "Could not send the invitation email",
+    sensitive
+      ? "Could not send the signup email"
+      : "Could not send the invitation email",
     HTTP_STATUS.BAD_GATEWAY
   );
 };
+
+export const sendEmail = (params: SendEmailParams): Promise<void> =>
+  send(params, false);
+
+/**
+ * Signup mail is sent detached from an anonymous 202, so its failures must not
+ * echo a provider error (or the recipient's address) into logs.
+ */
+export const sendSignupEmail = (params: SendEmailParams): Promise<void> =>
+  send(params, true);
